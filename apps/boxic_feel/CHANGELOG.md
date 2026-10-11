@@ -7,6 +7,19 @@ The project follows Semantic Versioning. While the package is below version
 
 ## Unreleased
 
+Fixes:
+
+- Return an `:invalid_syntax` error for numeric literals that exceed Decimal128
+  limits (more than 34 significant digits, or an exponent beyond +-6144, such as
+  `1e-6176`) instead of raising `Decimal.Error`.
+- Return `nil` from a unary test whose value is null, instead of raising
+  `ArgumentError` when the test is negated (`not([1..10])`). `evaluate_unary_test/3`
+  is specified as returning a boolean or `nil`.
+- Decide a range test for a value that cannot be compared with the bounds as `null`,
+  not by Erlang's term order: `"a" in [1..100]` and `1 in ["a".."z"]` returned
+  `false`. Bounds are only compared when both are numbers, strings, booleans, or the
+  same kind of temporal value, and the two bound tests combine with three-valued `and`.
+
 Security:
 
 - Require `decimal` 3.1.2 or later, which fixes unbounded allocation in

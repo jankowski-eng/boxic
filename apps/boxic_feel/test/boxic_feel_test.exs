@@ -257,6 +257,89 @@ defmodule Boxic.FEELTest do
     assert {:ok, "true"} = Boxic.FEEL.evaluate("string(true)")
   end
 
+  describe "unary tests on a null value" do
+    test "are null rather than raising, also when negated" do
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("[1..100]", nil)
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("not([1..100])", nil)
+    end
+
+    test "still decide values that can be tested" do
+      assert {:ok, true} = Boxic.FEEL.evaluate_unary_test("[1..100]", Decimal.new(5))
+      assert {:ok, false} = Boxic.FEEL.evaluate_unary_test("not([1..100])", Decimal.new(5))
+      assert {:ok, true} = Boxic.FEEL.evaluate_unary_test("not([1..100])", Decimal.new(500))
+    end
+  end
+
+  describe "range tests on values that cannot be compared with the bounds" do
+    test "are null, not decided by Erlang's term order" do
+      for expression <- [
+            ~S|"a" in [1..100]|,
+            ~S|1 in ["a".."z"]|,
+            ~S|date("2021-01-01") in [1..5]|,
+            ~S|true in [1..5]|,
+            "[1] in [1..5]"
+          ] do
+        assert {:ok, nil} == Boxic.FEEL.evaluate(expression), expression
+      end
+    end
+
+    test "are null as unary tests too, also when negated" do
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("[1..100]", "a")
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("not([1..100])", "a")
+    end
+
+    test "do not affect values that can be compared" do
+      assert {:ok, true} = Boxic.FEEL.evaluate("5 in [1..10]")
+      assert {:ok, false} = Boxic.FEEL.evaluate("50 in [1..10]")
+      assert {:ok, false} = Boxic.FEEL.evaluate("10 in [1..10)")
+      assert {:ok, true} = Boxic.FEEL.evaluate(~S|"m" in ["a".."z"]|)
+      assert {:ok, false} = Boxic.FEEL.evaluate(~S|"zz" in ["a".."z"]|)
+
+      assert {:ok, true} =
+               Boxic.FEEL.evaluate(
+                 ~S|date("2021-06-01") in [date("2021-01-01")..date("2021-12-31")]|
+               )
+
+      assert {:ok, nil} == Boxic.FEEL.evaluate("null in [1..10]")
+    end
+  end
+
+  describe "numeric literals beyond the supported range" do
+    # Decimal rejects literals with more than 34 significant digits or a decimal exponent
+    # beyond +-6144. Those must surface as syntax errors, never as raised exceptions.
+    for {name, literal} <- [
+          {"a negative exponent below the limit", "1e-6176"},
+          {"a positive exponent above the limit", "1e6145"},
+          {"an integer with too many digits", String.duplicate("9", 35)},
+          {"a decimal with too many digits", "0." <> String.duplicate("1", 40)},
+          {"a leading-dot decimal with too many digits", "." <> String.duplicate("1", 40)}
+        ] do
+      test "#{name} is a syntax error" do
+        assert {:error, %Boxic.FEEL.Error{code: :invalid_syntax, message: message}} =
+                 Boxic.FEEL.evaluate(unquote(literal))
+
+        assert message =~ "numeric literal"
+
+        assert {:error, %Boxic.FEEL.Error{code: :invalid_syntax}} =
+                 Boxic.FEEL.parse(unquote(literal))
+      end
+    end
+
+    test "error messages do not echo an arbitrarily long literal" do
+      assert {:error, %Boxic.FEEL.Error{message: message}} =
+               Boxic.FEEL.evaluate(String.duplicate("9", 5_000))
+
+      assert String.length(message) < 120
+    end
+
+    test "literals at the limits still evaluate" do
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate("1e6144")
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate("1e-6144")
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate(String.duplicate("9", 34))
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate(".5")
+    end
+  end
+
   test "duration arithmetic preserves kinds and temporal boundary semantics" do
     assert {:ok, %Duration{kind: :day_time} = scaled} =
              Boxic.FEEL.evaluate(~S|duration("PT1H") * 2.5|)

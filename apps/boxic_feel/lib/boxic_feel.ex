@@ -84,9 +84,13 @@ defmodule Boxic.FEEL do
 
       iex> Boxic.FEEL.evaluate_unary_test(">= 18", Decimal.new("21"))
       {:ok, true}
+
+  The result is `nil` when the test cannot be decided, for example when `value` is null or
+  cannot be compared with the bounds of a range.
+  A caller deciding whether a rule matches should treat that as not satisfied.
   """
   @spec evaluate_unary_test(String.t(), term(), context()) ::
-          {:ok, boolean()} | {:error, Error.t()}
+          {:ok, boolean() | nil} | {:error, Error.t()}
   def evaluate_unary_test(test_expression, value, context \\ %{})
       when is_binary(test_expression) and is_map(context) do
     Evaluator.evaluate_unary_test(test_expression, value, context)
