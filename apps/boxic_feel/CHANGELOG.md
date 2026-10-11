@@ -5,6 +5,13 @@ All notable changes to `boxic_feel` will be documented in this file.
 The project follows Semantic Versioning. While the package is below version
 1.0.0, breaking changes increment the minor version.
 
+## Unreleased
+
+Security:
+
+- Require `decimal` 3.1.2 or later, which fixes unbounded allocation in
+  `Decimal.round/3` (CVE-2026-97853). Releases 3.1.2 and 3.2.x are tested.
+
 ## 0.1.0 - 2026-07-18
 
 - Initial public release.
