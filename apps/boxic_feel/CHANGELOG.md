@@ -25,6 +25,11 @@ DMN 1.6 additions:
 
 Not yet supported: the strict error-handling mode and the B-FEEL dialect.
 
+Security:
+
+- Require `decimal` 3.1.2 or later, which fixes unbounded allocation in
+  `Decimal.round/3` (CVE-2026-97853). Releases 3.1.2 and 3.2.x are tested.
+
 ## 0.1.0 - 2026-07-18
 
 - Initial public release.
