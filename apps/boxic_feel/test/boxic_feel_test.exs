@@ -257,6 +257,42 @@ defmodule Boxic.FEELTest do
     assert {:ok, "true"} = Boxic.FEEL.evaluate("string(true)")
   end
 
+  describe "numeric literals beyond the supported range" do
+    # Decimal rejects literals with more than 34 significant digits or a decimal exponent
+    # beyond +-6144. Those must surface as syntax errors, never as raised exceptions.
+    for {name, literal} <- [
+          {"a negative exponent below the limit", "1e-6176"},
+          {"a positive exponent above the limit", "1e6145"},
+          {"an integer with too many digits", String.duplicate("9", 35)},
+          {"a decimal with too many digits", "0." <> String.duplicate("1", 40)},
+          {"a leading-dot decimal with too many digits", "." <> String.duplicate("1", 40)}
+        ] do
+      test "#{name} is a syntax error" do
+        assert {:error, %Boxic.FEEL.Error{code: :invalid_syntax, message: message}} =
+                 Boxic.FEEL.evaluate(unquote(literal))
+
+        assert message =~ "numeric literal"
+
+        assert {:error, %Boxic.FEEL.Error{code: :invalid_syntax}} =
+                 Boxic.FEEL.parse(unquote(literal))
+      end
+    end
+
+    test "error messages do not echo an arbitrarily long literal" do
+      assert {:error, %Boxic.FEEL.Error{message: message}} =
+               Boxic.FEEL.evaluate(String.duplicate("9", 5_000))
+
+      assert String.length(message) < 120
+    end
+
+    test "literals at the limits still evaluate" do
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate("1e6144")
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate("1e-6144")
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate(String.duplicate("9", 34))
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate(".5")
+    end
+  end
+
   test "duration arithmetic preserves kinds and temporal boundary semantics" do
     assert {:ok, %Duration{kind: :day_time} = scaled} =
              Boxic.FEEL.evaluate(~S|duration("PT1H") * 2.5|)

@@ -31,6 +31,12 @@ Validation:
   The FEEL profile is unchanged at 2,042 passing cases, with the same 18
   intentionally unsupported Java cases.
 
+Fixes:
+
+- Return an `:invalid_syntax` error for numeric literals that exceed Decimal128
+  limits (more than 34 significant digits, or an exponent beyond +-6144, such as
+  `1e-6176`) instead of raising `Decimal.Error`.
+
 Security:
 
 - Require `decimal` 3.1.2 or later, which fixes unbounded allocation in
