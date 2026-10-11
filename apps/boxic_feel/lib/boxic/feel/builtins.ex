@@ -444,16 +444,28 @@ defmodule Boxic.FEEL.Builtins do
         round_at_scale(value, scale, :ceiling)
 
       {"decimal", [%Decimal{} = value, %Decimal{} = scale]} ->
-        round_at_scale(value, scale, :half_even, truncate_scale: true)
+        round_at_scale(value, scale, :half_even)
+
+      {"round_up", [%Decimal{} = value]} ->
+        round_at_scale(value, Decimal.new(0), :up)
 
       {"round_up", [%Decimal{} = value, %Decimal{} = scale]} ->
         round_at_scale(value, scale, :up)
 
+      {"round_down", [%Decimal{} = value]} ->
+        round_at_scale(value, Decimal.new(0), :down)
+
       {"round_down", [%Decimal{} = value, %Decimal{} = scale]} ->
         round_at_scale(value, scale, :down)
 
+      {"round_half_up", [%Decimal{} = value]} ->
+        round_at_scale(value, Decimal.new(0), :half_up)
+
       {"round_half_up", [%Decimal{} = value, %Decimal{} = scale]} ->
         round_at_scale(value, scale, :half_up)
+
+      {"round_half_down", [%Decimal{} = value]} ->
+        round_at_scale(value, Decimal.new(0), :half_down)
 
       {"round_half_down", [%Decimal{} = value, %Decimal{} = scale]} ->
         round_at_scale(value, scale, :half_down)
@@ -547,6 +559,10 @@ defmodule Boxic.FEEL.Builtins do
 
       {"date_time", [%FeelDateTime{} = datetime, %FeelTime{} = time]} ->
         {:ok, FeelDateTime.new(datetime.date, time)}
+
+      {"date_time", [date, %FeelTime{} = time, zone]}
+      when is_binary(zone) and (is_struct(date, Date) or is_struct(date, FeelDateTime)) ->
+        date_time_with_zone(date, time, zone)
 
       {"date_time", [%DateTime{} = datetime, %Time{} = time]} ->
         DateTime.new(DateTime.to_date(datetime), time, datetime.time_zone)
@@ -649,7 +665,7 @@ defmodule Boxic.FEEL.Builtins do
     "range" => ["from"],
     "date" => [["from"], ["year", "month", "day"]],
     "time" => [["from"], ["hour", "minute", "second", "offset"]],
-    "date_time" => [["from"], ["date", "time"]]
+    "date_time" => [["from"], ["date", "time"], ["date", "time", "timezone"]]
   }
 
   defp normalize_args(name, args) do
@@ -744,9 +760,9 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp new_date(year, month, day) do
-    with {:ok, year} <- decimal_integer(year),
-         {:ok, month} <- decimal_integer(month),
-         {:ok, day} <- decimal_integer(day),
+    with {:ok, year} <- decimal_to_integer(year),
+         {:ok, month} <- decimal_to_integer(month),
+         {:ok, day} <- decimal_to_integer(day),
          true <- year in -999_999_999..999_999_999,
          {:ok, date} <- Date.new(year, month, day) do
       {:ok, date}
@@ -756,8 +772,8 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp new_time(hour, minute, second, offset) do
-    with {:ok, hour} <- decimal_integer(hour),
-         {:ok, minute} <- decimal_integer(minute),
+    with {:ok, hour} <- decimal_to_integer(hour),
+         {:ok, minute} <- decimal_to_integer(minute),
          {:ok, zone} <- time_zone(offset),
          {:ok, time} <- FeelTime.new(hour, minute, second, zone) do
       {:ok, time}
@@ -765,6 +781,19 @@ defmodule Boxic.FEEL.Builtins do
       _ -> {:error, err(:evaluation_error, "invalid time components")}
     end
   end
+
+  # DMN 1.6 `date and time(date, time, timezone)`: `time` must not carry its own zone.
+  defp date_time_with_zone(date, %FeelTime{zone: :floating} = time, zone) do
+    date = if is_struct(date, FeelDateTime), do: date.date, else: date
+
+    case FeelTime.with_zone(time, zone) do
+      {:ok, zoned} -> {:ok, FeelDateTime.new(date, zoned)}
+      :error -> {:error, err(:evaluation_error, "invalid time zone")}
+    end
+  end
+
+  defp date_time_with_zone(_date, _time, _zone),
+    do: {:error, err(:evaluation_error, "time must not have a time zone")}
 
   defp time_zone(nil), do: {:ok, :floating}
 
@@ -825,10 +854,8 @@ defmodule Boxic.FEEL.Builtins do
     String.slice(value, max(index, 0), count)
   end
 
-  defp round_at_scale(value, scale, mode, opts \\ []) do
-    scale = if opts[:truncate_scale], do: Decimal.round(scale, 0, :down), else: scale
-
-    case decimal_integer(scale) do
+  defp round_at_scale(value, scale, mode) do
+    case decimal_to_integer(scale) do
       {:ok, integer} when integer in -6111..6176 ->
         if integer >= max(value.exp * -1, 0),
           do: {:ok, value},
@@ -991,6 +1018,14 @@ defmodule Boxic.FEEL.Builtins do
     _ -> :error
   end
 
+  # DMN 1.6 (10.3.2.9.4): a number supplied where an integer is expected is
+  # implicitly converted by discarding its fractional part.
+  defp decimal_to_integer(value) do
+    value |> Decimal.round(0, :down) |> decimal_integer()
+  rescue
+    _ -> :error
+  end
+
   defp sum_list([]), do: {:ok, nil}
 
   defp sum_list(values) do
@@ -1041,7 +1076,7 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp insert_before(list, position, value) do
-    with {:ok, position} <- decimal_integer(position),
+    with {:ok, position} <- decimal_to_integer(position),
          true <- position != 0 and abs(position) <= length(list) + 1 do
       index = if position > 0, do: position - 1, else: length(list) + position + 1
       {:ok, List.insert_at(list, index, value)}
@@ -1051,7 +1086,7 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp remove_at(list, position) do
-    with {:ok, position} <- decimal_integer(position),
+    with {:ok, position} <- decimal_to_integer(position),
          true <- position != 0 and abs(position) <= length(list) do
       index = if position > 0, do: position - 1, else: length(list) + position
       {:ok, List.delete_at(list, index)}
@@ -1079,7 +1114,7 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp sublist(list, start, requested_length) do
-    with {:ok, start} <- decimal_integer(start),
+    with {:ok, start} <- decimal_to_integer(start),
          true <- start != 0,
          {:ok, count} <- sublist_length(requested_length),
          index = if(start > 0, do: start - 1, else: length(list) + start),
@@ -1094,7 +1129,7 @@ defmodule Boxic.FEEL.Builtins do
   defp sublist_length(nil), do: {:ok, nil}
 
   defp sublist_length(value) do
-    with {:ok, length} <- decimal_integer(value),
+    with {:ok, length} <- decimal_to_integer(value),
          true <- length >= 0,
          do: {:ok, length},
          else: (_ -> :error)

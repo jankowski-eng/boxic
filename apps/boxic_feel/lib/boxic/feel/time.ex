@@ -71,6 +71,27 @@ defmodule Boxic.FEEL.Time do
   end
 
   @doc """
+  Attaches a zone to a floating FEEL time.
+
+  The zone is either an offset (`"Z"`, `"+01:00"`) or an IANA identifier
+  (`"Europe/Paris"`, optionally prefixed with `@`).
+
+      Boxic.FEEL.Time.with_zone(time, "America/Costa_Rica")
+  """
+  @spec with_zone(t(), String.t()) :: {:ok, t()} | :error
+  def with_zone(%__MODULE__{zone: :floating} = time, zone) when is_binary(zone) do
+    zone_text =
+      if zone == "Z" or String.starts_with?(zone, ["+", "-", "@"]), do: zone, else: "@" <> zone
+
+    case parse_zone(zone_text) do
+      {:ok, parsed} when parsed != :floating -> {:ok, %{time | zone: parsed}}
+      _ -> :error
+    end
+  end
+
+  def with_zone(%__MODULE__{}, _zone), do: :error
+
+  @doc """
   Converts an Elixir time into a floating FEEL time.
 
       Boxic.FEEL.Time.from_elixir(~T[12:30:15])

@@ -4,6 +4,8 @@ defmodule Boxic.FEEL.Evaluator do
   alias Boxic.FEEL.DateTime, as: FeelDateTime
   alias Boxic.FEEL.Time, as: FeelTime
 
+  @epoch_gregorian_days Date.to_gregorian_days(~D[1970-01-01])
+
   def evaluate_unary_test(test_expression, value, context) do
     trimmed = String.trim(test_expression)
 
@@ -74,6 +76,16 @@ defmodule Boxic.FEEL.Evaluator do
         _ ->
           {:ok, nil}
       end
+    end
+  end
+
+  # DMN 1.6 descendant expression (`e...name`, grammar rule 68): the values of every
+  # entry called `name` in a context and, recursively, in the contexts nested in it.
+  def eval({:descendant, expr, key}, context) do
+    with {:ok, value} <- eval(expr, context) do
+      if is_map(value) and not is_struct(value),
+        do: {:ok, descendant_values(value, key)},
+        else: {:ok, nil}
     end
   end
 
@@ -237,6 +249,28 @@ defmodule Boxic.FEEL.Evaluator do
   defp property_value(%Date{} = value, "day"), do: decimal_new(value.day)
   defp property_value(%Date{} = value, "weekday"), do: decimal_new(Date.day_of_week(value))
 
+  # DMN 1.6 `value` property (Table 66). A date is equivalent to a date and time at
+  # UTC midnight, so its value is the number of seconds between the epoch and then.
+  defp property_value(%Date{} = value, "value"),
+    do: decimal_new((Date.to_gregorian_days(value) - @epoch_gregorian_days) * 86_400)
+
+  # valuedt is only defined for date-times with a UTC form; a floating (zone-less)
+  # date-time has no position on the timeline, so its value is null.
+  defp property_value(%FeelDateTime{} = value, "value") do
+    case FeelDateTime.instant_seconds(value) do
+      {:ok, seconds} -> Decimal.sub(seconds, decimal_new(@epoch_gregorian_days * 86_400))
+      :error -> nil
+    end
+  end
+
+  defp property_value(%FeelTime{} = value, "value"), do: FeelTime.local_seconds(value)
+
+  defp property_value(%Duration{kind: :year_month, months: months}, "value"),
+    do: decimal_new(months)
+
+  defp property_value(%Duration{kind: :day_time, seconds: seconds}, "value"),
+    do: decimal_value(seconds)
+
   defp property_value(%FeelDateTime{date: date}, key) when key in ~w(year month day weekday),
     do: property_value(date, key)
 
@@ -294,6 +328,21 @@ defmodule Boxic.FEEL.Evaluator do
   end
 
   defp property_value(map, key), do: Map.get(map, key)
+
+  defp descendant_values(context, key) do
+    Enum.flat_map(context, fn {entry_key, entry_value} ->
+      matches = if entry_key == key, do: [entry_value], else: []
+      matches ++ nested_descendant_values(entry_value, key)
+    end)
+  end
+
+  defp nested_descendant_values(value, key) when is_map(value) and not is_struct(value),
+    do: descendant_values(value, key)
+
+  defp nested_descendant_values(values, key) when is_list(values),
+    do: Enum.flat_map(values, &nested_descendant_values(&1, key))
+
+  defp nested_descendant_values(_value, _key), do: []
 
   defp seconds_component(seconds, divisor, :quotient) do
     seconds |> decimal_value() |> Decimal.div_int(divisor) |> Decimal.round(0, :down)
