@@ -257,6 +257,13 @@ defmodule Boxic.FEELTest do
     assert {:ok, "true"} = Boxic.FEEL.evaluate("string(true)")
   end
 
+  test "max accepts a single value as well as a list or several values" do
+    for expression <- ["max(5)", "max([5])", "max(5, 3)", "max(3, 5, 4)"] do
+      assert {:ok, five} = Boxic.FEEL.evaluate(expression)
+      assert Decimal.equal?(five, Decimal.new(5)), expression
+    end
+  end
+
   test "sum and min accept their variadic forms" do
     assert {:ok, six} = Boxic.FEEL.evaluate("sum(1, 2, 3)")
     assert Decimal.equal?(six, Decimal.new(6))

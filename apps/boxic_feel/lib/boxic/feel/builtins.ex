@@ -320,7 +320,7 @@ defmodule Boxic.FEEL.Builtins do
       {"max", [list]} when is_list(list) ->
         max_list(list)
 
-      {"max", values} when length(values) > 1 ->
+      {"max", values} when values != [] ->
         max_list(values)
 
       {"mean", [list]} when is_list(list) ->

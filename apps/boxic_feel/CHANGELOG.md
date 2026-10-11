@@ -26,6 +26,7 @@ DMN 1.6 additions:
 Fixes:
 
 - Support the variadic forms `sum(n1, ..., nN)` and `min(c1, ..., cN)`.
+- Accept a single non-list argument for `max(c1, ..., cN)`, as `sum` and `min` do.
 
 Not yet supported: the strict error-handling mode and the B-FEEL dialect.
 
