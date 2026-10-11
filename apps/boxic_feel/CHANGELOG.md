@@ -7,6 +7,12 @@ The project follows Semantic Versioning. While the package is below version
 
 ## Unreleased
 
+Fixes:
+
+- Return an `:invalid_syntax` error for numeric literals that exceed Decimal128
+  limits (more than 34 significant digits, or an exponent beyond +-6144, such as
+  `1e-6176`) instead of raising `Decimal.Error`.
+
 Security:
 
 - Require `decimal` 3.1.2 or later, which fixes unbounded allocation in

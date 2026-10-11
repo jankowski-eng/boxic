@@ -167,8 +167,7 @@ defmodule Boxic.FEEL.Tokenizer do
 
   defp tokenize(<<".", digit::utf8, _rest::binary>> = input, acc)
        when digit >= ?0 and digit <= ?9 do
-    {number, remaining} = take_number(input)
-    tokenize(remaining, [{:number, decimal_new(number)} | acc])
+    tokenize_number(input, acc)
   end
 
   defp tokenize(<<".", rest::binary>>, acc), do: tokenize(rest, [:dot | acc])
@@ -194,8 +193,7 @@ defmodule Boxic.FEEL.Tokenizer do
 
   defp tokenize(<<char::utf8, _rest::binary>> = input, acc)
        when char in [?0, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9] do
-    {number, remaining} = take_number(input)
-    tokenize(remaining, [{:number, decimal_new(number)} | acc])
+    tokenize_number(input, acc)
   end
 
   defp tokenize(<<char::utf8, _rest::binary>> = input, acc)
@@ -354,6 +352,23 @@ defmodule Boxic.FEEL.Tokenizer do
 
   defp take_while(<<>>, _predicate, acc), do: {acc, ""}
 
+  # Decimal rejects literals with more than 34 significant digits or an exponent beyond
+  # +-6144, which would otherwise raise. Report them as syntax errors instead, without
+  # echoing an arbitrarily long literal back.
+  defp tokenize_number(input, acc) do
+    {number, remaining} = take_number(input)
+
+    case Decimal.parse(number) do
+      {%Decimal{} = value, ""} ->
+        tokenize(remaining, [{:number, value} | acc])
+
+      _ ->
+        {:error, error(:invalid_syntax, "numeric literal out of range: #{preview(number)}")}
+    end
+  end
+
+  defp preview(text) when byte_size(text) > 40, do: binary_part(text, 0, 40) <> "..."
+  defp preview(text), do: text
+
   defp error(code, message), do: %Error{code: code, message: message}
-  defp decimal_new(value), do: apply(Decimal, :new, [value])
 end
