@@ -26,6 +26,12 @@ DMN 1.6 additions:
   adding the `1157-implicit-conversions` and `1160-multiple-imports` groups. The
   DMN profile passes all 1,501 cases.
 
+Fixes:
+
+- A decision table input entry that cannot be decided for the input, such as a
+  null input or a value that cannot be compared with a range, no longer raises
+  `CaseClauseError`. The rule does not match.
+
 Behavior changes:
 
 - A decision, business knowledge model, decision service, or context entry whose

@@ -17,7 +17,7 @@ defmodule Boxic.FEEL.Evaluator do
         inner = trimmed |> String.slice(4, String.length(trimmed) - 5)
 
         with {:ok, matches?} <- evaluate_unary_test(inner, value, context),
-             do: {:ok, not matches?}
+             do: {:ok, feel_not(matches?)}
 
       comparator_unary_test?(trimmed) ->
         eval_comparator_unary_test(trimmed, value, context)
@@ -1280,10 +1280,10 @@ defmodule Boxic.FEEL.Evaluator do
   defp range_contains?(%Range{start: nil}, _value), do: nil
   defp range_contains?(%Range{end: nil}, _value), do: nil
 
+  # A value that cannot be compared with the bounds is neither in the range nor out of it,
+  # so the two bound tests combine with FEEL's three-valued `and`.
   defp range_contains?(%Range{} = range, value) do
-    lower_ok = range_lower_ok?(range, value)
-    upper_ok = range_upper_ok?(range, value)
-    lower_ok and upper_ok
+    feel_and(range_lower_ok?(range, value), range_upper_ok?(range, value))
   end
 
   defp evaluate_in(value, {:unary_test, operator, operand_ast}, context) do
@@ -1344,6 +1344,7 @@ defmodule Boxic.FEEL.Evaluator do
     case compare_for_bounds(value, start) do
       :gt -> true
       :eq -> inclusive
+      :not_comparable -> nil
       _ -> false
     end
   end
@@ -1352,6 +1353,7 @@ defmodule Boxic.FEEL.Evaluator do
     case compare_for_bounds(value, finish) do
       :lt -> true
       :eq -> inclusive
+      :not_comparable -> nil
       _ -> false
     end
   end
@@ -1372,15 +1374,15 @@ defmodule Boxic.FEEL.Evaluator do
   defp compare_for_bounds(%Duration{} = left, %Duration{} = right),
     do: Duration.compare(left, right)
 
-  defp compare_for_bounds(left, right) do
-    cond do
-      left == right -> :eq
-      left < right -> :lt
-      true -> :gt
-    end
-  rescue
-    _ -> :not_comparable
-  end
+  defp compare_for_bounds(left, right) when is_binary(left) and is_binary(right),
+    do: compare_strings(left, right)
+
+  defp compare_for_bounds(left, right) when is_boolean(left) and is_boolean(right),
+    do: compare_booleans(left, right)
+
+  # Anything else cannot be ordered; comparing arbitrary terms would use Erlang's term order,
+  # which says nothing about FEEL values.
+  defp compare_for_bounds(_left, _right), do: :not_comparable
 
   defp feel_not(nil), do: nil
   defp feel_not(true), do: false

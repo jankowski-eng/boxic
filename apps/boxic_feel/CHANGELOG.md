@@ -23,6 +23,19 @@ DMN 1.6 additions:
   list position or length, or date and time component is truncated instead of
   producing an error. Time zone offsets remain strict.
 
+Fixes, so that results match the specification's tables:
+
+- `sum([])`, `mean([])`, and the standard deviation of fewer than two numbers are
+  `null`. They returned `0` or an error.
+- A range function (`before`, `after`, `includes`, `during`, ...) with a `null`
+  argument is `null`. It returned `false`.
+- A value that cannot be compared with the bounds of a range is neither in it nor
+  out of it: `"a" in [1..100]` and `1 in ["a".."z"]` are `null`, not `false`.
+  Range bounds are only compared when both are numbers, strings, booleans, or the
+  same kind of temporal value.
+- `evaluate_unary_test/3` is documented as returning `nil` when a test cannot be
+  decided, and `not(...)` of such a test is `nil` instead of raising.
+
 Not yet supported: the strict error-handling mode and the B-FEEL dialect.
 
 Validation:

@@ -94,6 +94,9 @@ defmodule Boxic.FEEL.Builtins do
     range
   )
 
+  @range_relations ~w(before after meets met_by overlaps_before overlaps_after finishes
+                      finished_by includes during starts started_by coincides overlaps)
+
   @spec resolve(String.t()) :: {:ok, {:builtin, String.t()}} | {:ok, nil}
   def resolve(name) when is_binary(name) do
     if name in @builtins do
@@ -269,22 +272,10 @@ defmodule Boxic.FEEL.Builtins do
         {:ok, Date.utc_today()}
 
       {relation, [left, right]}
-      when relation in [
-             "before",
-             "after",
-             "meets",
-             "met_by",
-             "overlaps_before",
-             "overlaps_after",
-             "finishes",
-             "finished_by",
-             "includes",
-             "during",
-             "starts",
-             "started_by",
-             "coincides",
-             "overlaps"
-           ] ->
+      when relation in @range_relations and (is_nil(left) or is_nil(right)) ->
+        {:ok, nil}
+
+      {relation, [left, right]} when relation in @range_relations ->
         interval_relation(relation, left, right)
 
       {"count", [list]} when is_list(list) ->
@@ -941,8 +932,8 @@ defmodule Boxic.FEEL.Builtins do
     end
   end
 
-  defp stddev(values) when length(values) < 2,
-    do: {:error, err(:evaluation_error, "stddev expects at least two numbers")}
+  # The standard deviation of fewer than two numbers is null.
+  defp stddev(values) when length(values) < 2, do: {:ok, nil}
 
   defp stddev(values) do
     with :ok <- validate_numeric_values(values) do
@@ -1029,6 +1020,8 @@ defmodule Boxic.FEEL.Builtins do
     _ -> :error
   end
 
+  defp sum_list([]), do: {:ok, nil}
+
   defp sum_list(values) do
     case Enum.all?(values, &match?(%Decimal{}, &1)) do
       true -> {:ok, Enum.reduce(values, Decimal.new("0"), &Decimal.add/2)}
@@ -1054,8 +1047,10 @@ defmodule Boxic.FEEL.Builtins do
     end
   end
 
+  defp mean_list([]), do: {:ok, nil}
+
   defp mean_list(values) do
-    if values != [] and Enum.all?(values, &match?(%Decimal{}, &1)) do
+    if Enum.all?(values, &match?(%Decimal{}, &1)) do
       {:ok,
        values
        |> Enum.reduce(Decimal.new(0), &Decimal.add/2)

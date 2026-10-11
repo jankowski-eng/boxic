@@ -183,6 +183,45 @@ defmodule Boxic.DMN16Test do
     end
   end
 
+  describe "decision table input entries" do
+    defp range_table(input) do
+      model =
+        load!("""
+        <inputData id="value" name="Value"><variable name="Value" typeRef="string"/></inputData>
+        <decision id="dec" name="Result">
+          <variable name="Result"/>
+          <informationRequirement><requiredInput href="#value"/></informationRequirement>
+          <decisionTable hitPolicy="FIRST">
+            <input id="in"><inputExpression typeRef="string"><text>Value</text></inputExpression></input>
+            <output id="out"/>
+            <rule><inputEntry><text>#{input}</text></inputEntry><outputEntry><text>"low"</text></outputEntry></rule>
+            <rule><inputEntry><text>-</text></inputEntry><outputEntry><text>"other"</text></outputEntry></rule>
+          </decisionTable>
+        </decision>
+        """)
+
+      model
+    end
+
+    test "do not match a value that cannot be compared with a range" do
+      model = range_table("[1..10]")
+
+      assert {:ok, "other"} = Boxic.DMN.evaluate(model, "Result", %{"Value" => "abc"})
+    end
+
+    test "do not match a range for a null input" do
+      model = range_table("[1..10]")
+
+      assert {:ok, "other"} = Boxic.DMN.evaluate(model, "Result", %{"Value" => nil})
+    end
+
+    test "do not match a negated range for a value that cannot be compared" do
+      model = range_table("not([1..10])")
+
+      assert {:ok, "other"} = Boxic.DMN.evaluate(model, "Result", %{"Value" => "abc"})
+    end
+  end
+
   describe "implicit type conversions" do
     @list_types """
     <itemDefinition id="strings" name="stringList" isCollection="true"><typeRef>string</typeRef></itemDefinition>
