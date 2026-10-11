@@ -23,6 +23,10 @@ DMN 1.6 additions:
   list position or length, or date and time component is truncated instead of
   producing an error. Time zone offsets remain strict.
 
+Fixes:
+
+- Support the variadic forms `sum(n1, ..., nN)` and `min(c1, ..., cN)`.
+
 Not yet supported: the strict error-handling mode and the B-FEEL dialect.
 
 Validation:

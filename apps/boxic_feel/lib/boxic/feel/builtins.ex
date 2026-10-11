@@ -308,8 +308,14 @@ defmodule Boxic.FEEL.Builtins do
       {"sum", [list]} when is_list(list) ->
         sum_list(list)
 
+      {"sum", values} when values != [] ->
+        sum_list(values)
+
       {"min", [list]} when is_list(list) ->
         min_list(list)
+
+      {"min", values} when values != [] ->
+        min_list(values)
 
       {"max", [list]} when is_list(list) ->
         max_list(list)
