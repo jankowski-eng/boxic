@@ -322,7 +322,7 @@ defmodule Boxic.DMN.XML.Loader do
           id: attr(expression, "id"),
           text: text_child(expression),
           type_ref: attr(expression, "typeRef"),
-          expression_language: attr(expression, "expressionLanguage") || "feel"
+          expression_language: attr(expression, "expressionLanguage")
         }
 
       "decisionTable" ->

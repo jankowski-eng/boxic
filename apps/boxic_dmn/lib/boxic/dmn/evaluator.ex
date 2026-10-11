@@ -43,7 +43,7 @@ defmodule Boxic.DMN.Evaluator do
   @spec evaluate(Model.t(), String.t(), map()) :: {:ok, term()} | {:error, evaluation_error()}
   def evaluate(%Model{} = model, decision_name, context \\ %{})
       when is_binary(decision_name) and is_map(context) do
-    with {:ok, context} <- coerce_input_context(model, context),
+    with {:ok, context} <- coerce_input_context(model, model_context(model, context)),
          {:ok, decision} <- find_decision(model, decision_name),
          {:ok, value, _memo} <- evaluate_decision(model, decision, context, %{}, %{}) do
       {:ok, value}
@@ -73,7 +73,7 @@ defmodule Boxic.DMN.Evaluator do
           do: Enum.map(arguments, fn {name, value} -> {:named_arg, name, value} end),
           else: arguments
 
-      invoke_bkm_from_feel(model, bkm, %{}, args)
+      invoke_bkm_from_feel(model, bkm, model_context(model, %{}), args)
     end
   end
 
@@ -87,7 +87,7 @@ defmodule Boxic.DMN.Evaluator do
           do: Enum.map(arguments, fn {name, value} -> {:named_arg, name, value} end),
           else: arguments
 
-      invoke_decision_service(model, service, %{}, args)
+      invoke_decision_service(model, service, model_context(model, %{}), args)
     end
   end
 
@@ -117,8 +117,13 @@ defmodule Boxic.DMN.Evaluator do
     end
   end
 
-  defp evaluate_expression(%LiteralExpression{text: text, type_ref: type_ref}, context, model)
+  defp evaluate_expression(
+         %LiteralExpression{text: text, type_ref: type_ref, expression_language: language},
+         context,
+         model
+       )
        when is_binary(text) do
+    context = with_expression_language(context, language)
     {text, context} = FEEL.normalize_names(text, context)
     context = Map.put(context, "__feel_types__", model.item_definitions)
 
@@ -406,6 +411,18 @@ defmodule Boxic.DMN.Evaluator do
       nil -> {:error, {:missing_input, input.name || input.id}}
     end
   end
+
+  # The language of the definitions selects the FEEL dialect for the whole model; a literal
+  # expression can override it with its own `expressionLanguage`.
+  defp model_context(%Model{definitions: %{expression_language: language}}, context),
+    do: Boxic.FEEL.put_dialect(context, Boxic.FEEL.dialect_for_language(language))
+
+  defp model_context(%Model{}, context), do: context
+
+  defp with_expression_language(context, nil), do: context
+
+  defp with_expression_language(context, language),
+    do: Boxic.FEEL.put_dialect(context, Boxic.FEEL.dialect_for_language(language))
 
   defp coerce_input_context(model, context) do
     Enum.reduce_while(model.input_data, {:ok, context}, fn {_id, input}, {:ok, result} ->

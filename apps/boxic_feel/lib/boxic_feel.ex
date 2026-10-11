@@ -6,7 +6,7 @@ defmodule Boxic.FEEL do
   an already parsed syntax tree through `evaluate_ast/2`.
   """
 
-  alias Boxic.FEEL.{AST, Error, Evaluator, Parser, Tokenizer}
+  alias Boxic.FEEL.{AST, BFEEL, Error, Evaluator, Parser, Tokenizer}
 
   @type ast ::
           {:literal, term()}
@@ -32,6 +32,18 @@ defmodule Boxic.FEEL do
           | {:function, [String.t()], ast()}
           | {:call, ast(), [ast()]}
   @type context :: %{optional(String.t()) => term()}
+
+  @typedoc """
+  The FEEL dialect used for evaluation.
+
+  `:b_feel` is the DMN 1.6 Business Friendly Enough Expression Language: it shares FEEL's
+  grammar, but `null` only represents missing data. Operators and built-in functions that
+  would return `null` because of an error return a value of their result type instead, such
+  as `false`, `0`, or `""`.
+  """
+  @type dialect :: :feel | :b_feel
+
+  @type option :: {:dialect, dialect()}
 
   @doc """
   Parses a FEEL expression into Boxic's public AST representation.
@@ -68,16 +80,28 @@ defmodule Boxic.FEEL do
       ...>   "quantity" => Decimal.new("2")
       ...> })
       {:ok, Decimal.new("25.00")}
+
+  ## Options
+
+    * `:dialect` - `:feel` (the default) or `:b_feel`. See `t:dialect/0`.
+
+          iex> Boxic.FEEL.evaluate(~S|"a" = 1|, %{}, dialect: :b_feel)
+          {:ok, false}
   """
-  @spec evaluate(String.t(), context()) :: {:ok, term()} | {:error, Error.t()}
-  def evaluate(expression, context \\ %{}) when is_binary(expression) and is_map(context) do
-    with {:ok, ast} <- parse(expression), do: evaluate_ast(ast, context)
+  @spec evaluate(String.t(), context(), [option()]) :: {:ok, term()} | {:error, Error.t()}
+  def evaluate(expression, context \\ %{}, opts \\ [])
+      when is_binary(expression) and is_map(context) and is_list(opts) do
+    with {:ok, ast} <- parse(expression), do: evaluate_ast(ast, context, opts)
   end
 
-  @doc "Evaluates an AST previously returned by `parse/1`."
-  @spec evaluate_ast(ast(), context()) :: {:ok, term()} | {:error, Error.t()}
-  def evaluate_ast(ast, context) when is_map(context) do
-    with :ok <- AST.validate(ast), do: Evaluator.eval(ast, context)
+  @doc """
+  Evaluates an AST previously returned by `parse/1`.
+
+  Accepts the same options as `evaluate/3`.
+  """
+  @spec evaluate_ast(ast(), context(), [option()]) :: {:ok, term()} | {:error, Error.t()}
+  def evaluate_ast(ast, context, opts \\ []) when is_map(context) and is_list(opts) do
+    with :ok <- AST.validate(ast), do: Evaluator.eval(ast, with_dialect(context, opts))
   end
 
   @doc """
@@ -90,10 +114,51 @@ defmodule Boxic.FEEL do
   cannot be compared with the bounds of a range.
   A caller deciding whether a rule matches should treat that as not satisfied.
   """
-  @spec evaluate_unary_test(String.t(), term(), context()) ::
+  @spec evaluate_unary_test(String.t(), term(), context(), [option()]) ::
           {:ok, boolean() | nil} | {:error, Error.t()}
-  def evaluate_unary_test(test_expression, value, context \\ %{})
-      when is_binary(test_expression) and is_map(context) do
-    Evaluator.evaluate_unary_test(test_expression, value, context)
+  def evaluate_unary_test(test_expression, value, context \\ %{}, opts \\ [])
+      when is_binary(test_expression) and is_map(context) and is_list(opts) do
+    Evaluator.evaluate_unary_test(test_expression, value, with_dialect(context, opts))
+  end
+
+  @doc """
+  Selects the dialect for evaluations that use `context`.
+
+  The choice also applies to functions defined in expressions evaluated with the returned
+  context, because they capture it. This lets a host, such as a DMN evaluator, select the
+  dialect once for a whole model.
+  """
+  @spec put_dialect(context(), dialect()) :: context()
+  def put_dialect(context, :feel) when is_map(context), do: BFEEL.disable(context)
+  def put_dialect(context, :b_feel) when is_map(context), do: BFEEL.enable(context)
+
+  @doc """
+  Returns the dialect selected by `context`, which is `:feel` unless `put_dialect/2` or the
+  `:dialect` option chose another.
+  """
+  @spec dialect(context()) :: dialect()
+  def dialect(context) when is_map(context),
+    do: if(BFEEL.enabled?(context), do: :b_feel, else: :feel)
+
+  @doc """
+  Returns the dialect selected by a DMN expression language URI.
+
+  Only the B-FEEL URI of DMN 1.6 selects `:b_feel`; every other language is treated as FEEL
+  here, and deciding whether it is supported is left to the caller.
+
+      iex> Boxic.FEEL.dialect_for_language("https://www.omg.org/spec/DMN/20240513/B-FEEL/")
+      :b_feel
+  """
+  @spec dialect_for_language(String.t() | nil) :: dialect()
+  def dialect_for_language(language) do
+    if language == BFEEL.language(), do: :b_feel, else: :feel
+  end
+
+  defp with_dialect(context, opts) do
+    case Keyword.fetch(opts, :dialect) do
+      :error -> context
+      {:ok, dialect} when dialect in [:feel, :b_feel] -> put_dialect(context, dialect)
+      {:ok, other} -> raise ArgumentError, "unknown FEEL dialect: #{inspect(other)}"
+    end
   end
 end

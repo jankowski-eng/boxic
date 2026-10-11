@@ -10,7 +10,14 @@ The project follows Semantic Versioning. While the package is below version
 DMN 1.6 additions:
 
 - Accept the FEEL language URIs of DMN 1.4 (`20211108`) and DMN 1.6 (`20240513`).
-  The B-FEEL URI is still reported as an unsupported expression language.
+  The B-FEEL URI (`.../20240513/B-FEEL/`) is accepted as well: set it as the
+  `expressionLanguage` of the definitions to evaluate the whole model under
+  B-FEEL, or on a single literal expression to override the model's language. Under
+  B-FEEL the `C+` collect policy sums only numeric outputs and the sum of nothing
+  is 0.
+- `LiteralExpression.expression_language` is `nil` when the model does not declare
+  one, so that the expression inherits the language of the definitions. It used to
+  be `"feel"`.
 - Implicitly convert a single value used as the `in` expression of a boxed
   filter, `for`, `some`, or `every` into a singleton list. `null` is still a type
   error.
