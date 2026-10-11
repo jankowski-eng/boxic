@@ -183,6 +183,156 @@ defmodule Boxic.DMN16Test do
     end
   end
 
+  describe "implicit type conversions" do
+    @list_types """
+    <itemDefinition id="strings" name="stringList" isCollection="true"><typeRef>string</typeRef></itemDefinition>
+    <itemDefinition id="numbers" name="numberList" isCollection="true"><typeRef>number</typeRef></itemDefinition>
+    <itemDefinition id="alias" name="Alias"><typeRef>numberList</typeRef></itemDefinition>
+    <itemDefinition id="person" name="Person">
+      <itemComponent id="p1" name="name"><typeRef>string</typeRef></itemComponent>
+    </itemDefinition>
+    """
+
+    defp typed_decision(type_ref, text) do
+      load!("""
+      #{@list_types}
+      <decision id="dec" name="Result">
+        <variable name="Result" typeRef="#{type_ref}"/>
+        <literalExpression><text>#{text}</text></literalExpression>
+      </decision>
+      """)
+    end
+
+    test "convert a single value to a singleton list" do
+      assert {:ok, ["abc"]} =
+               Boxic.DMN.evaluate(typed_decision("stringList", ~S|"abc"|), "Result")
+    end
+
+    test "convert a singleton list to its element" do
+      assert {:ok, "abc"} = Boxic.DMN.evaluate(typed_decision("string", ~S|["abc"]|), "Result")
+
+      assert {:ok, ~D[2000-01-02]} =
+               Boxic.DMN.evaluate(typed_decision("date", ~S|[date("2000-01-02")]|), "Result")
+
+      assert {:ok, %{"name" => "Ada"}} =
+               Boxic.DMN.evaluate(typed_decision("Person", ~S|[{name: "Ada"}]|), "Result")
+    end
+
+    test "keep a list that is not a singleton for a collection type" do
+      assert {:ok, [one]} = Boxic.DMN.evaluate(typed_decision("Alias", "[1]"), "Result")
+      assert Decimal.equal?(one, number(1))
+    end
+
+    test "convert a date to a date and time at UTC midnight" do
+      model = typed_decision("date and time", ~S|date("2000-01-02")|)
+
+      assert {:ok, %Boxic.FEEL.DateTime{} = value} = Boxic.DMN.evaluate(model, "Result")
+      assert "2000-01-02T00:00:00Z" == Boxic.FEEL.DateTime.to_string(value)
+    end
+
+    test "produce null when a result cannot be converted to its type" do
+      assert {:ok, nil} =
+               Boxic.DMN.evaluate(typed_decision("string", ~S|["abc", "bcd"]|), "Result")
+
+      assert {:ok, nil} = Boxic.DMN.evaluate(typed_decision("number", ~S|"abc"|), "Result")
+    end
+
+    test "still reject input data that does not match its declared type" do
+      model =
+        load!("""
+        <inputData id="age" name="Age"><variable name="Age" typeRef="number"/></inputData>
+        <decision id="dec" name="Result">
+          <variable name="Result" typeRef="number"/>
+          <informationRequirement><requiredInput href="#age"/></informationRequirement>
+          <literalExpression><text>Age</text></literalExpression>
+        </decision>
+        """)
+
+      assert {:error, {:type_error, "number"}} =
+               Boxic.DMN.evaluate(model, "Result", %{"Age" => "old"})
+    end
+
+    test "convert context entries to the type of their variable" do
+      model =
+        load!("""
+        #{@list_types}
+        <decision id="dec" name="Result">
+          <variable name="Result"/>
+          <context>
+            <contextEntry>
+              <variable name="listed" typeRef="numberList"/>
+              <literalExpression><text>1</text></literalExpression>
+            </contextEntry>
+            <contextEntry>
+              <variable name="single" typeRef="number"/>
+              <literalExpression><text>[2]</text></literalExpression>
+            </contextEntry>
+            <contextEntry>
+              <variable name="moment" typeRef="date and time"/>
+              <literalExpression><text>date("2000-12-01")</text></literalExpression>
+            </contextEntry>
+            <contextEntry><literalExpression><text>[listed, single, moment]</text></literalExpression></contextEntry>
+          </context>
+        </decision>
+        """)
+
+      assert {:ok, [[one], two, %Boxic.FEEL.DateTime{} = moment]} =
+               Boxic.DMN.evaluate(model, "Result")
+
+      assert Decimal.equal?(one, number(1)) and Decimal.equal?(two, number(2))
+      assert "2000-12-01T00:00:00Z" == Boxic.FEEL.DateTime.to_string(moment)
+    end
+
+    test "convert invocation arguments to the parameter types of a business knowledge model" do
+      model =
+        load!("""
+        #{@list_types}
+        <businessKnowledgeModel id="bkm" name="Count">
+          <variable name="Count"/>
+          <encapsulatedLogic>
+            <formalParameter name="xs" typeRef="numberList"/>
+            <literalExpression><text>count(xs)</text></literalExpression>
+          </encapsulatedLogic>
+        </businessKnowledgeModel>
+        """)
+
+      assert {:ok, count} = Boxic.DMN.evaluate_bkm(model, "Count", %{"xs" => number(5)})
+      assert Decimal.equal?(count, number(1))
+    end
+  end
+
+  describe "evaluate_bkm/3" do
+    setup do
+      model =
+        load!("""
+        <businessKnowledgeModel id="bkm" name="Scale">
+          <variable name="Scale" typeRef="number"/>
+          <encapsulatedLogic>
+            <formalParameter name="value" typeRef="number"/>
+            <formalParameter name="factor" typeRef="number"/>
+            <literalExpression><text>value * factor</text></literalExpression>
+          </encapsulatedLogic>
+        </businessKnowledgeModel>
+        """)
+
+      %{model: model}
+    end
+
+    test "accepts arguments by name or by position", %{model: model} do
+      named = %{"value" => number(6), "factor" => number(7)}
+      assert {:ok, product} = Boxic.DMN.evaluate_bkm(model, "Scale", named)
+      assert Decimal.equal?(product, number(42))
+
+      assert {:ok, product} = Boxic.DMN.evaluate_bkm(model, "Scale", [number(2), number(3)])
+      assert Decimal.equal?(product, number(6))
+    end
+
+    test "reports unknown business knowledge models and wrong arguments", %{model: model} do
+      assert {:error, {:bkm_not_found, "Missing"}} = Boxic.DMN.evaluate_bkm(model, "Missing", %{})
+      assert {:error, _reason} = Boxic.DMN.evaluate_bkm(model, "Scale", %{"value" => number(1)})
+    end
+  end
+
   describe "externally defined function kinds" do
     test "ONNX business knowledge models are reported as unsupported" do
       model =
