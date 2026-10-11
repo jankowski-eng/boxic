@@ -23,7 +23,22 @@ DMN 1.6 additions:
   list position or length, or date and time component is truncated instead of
   producing an error. Time zone offsets remain strict.
 
-Not yet supported: the strict error-handling mode and the B-FEEL dialect.
+B-FEEL, the Business Friendly Enough Expression Language of DMN 1.6 clause 11:
+
+- Add a `:dialect` option (`:feel` or `:b_feel`) to `Boxic.FEEL.evaluate/3`,
+  `evaluate_ast/3`, and `evaluate_unary_test/4`. B-FEEL shares FEEL's grammar, but
+  `null` only means missing data: boolean operators and built-ins always return
+  `true` or `false`, numeric built-ins return `0`, string built-ins return `""`,
+  temporal built-ins return the epoch, and collection built-ins return `[]`
+  wherever FEEL would return `null`. Arithmetic converts mismatched operands
+  (`"a" + 1`, `1 + null`, `duration("P1Y") * null`), and list aggregates ignore
+  non-numeric elements.
+- Add `Boxic.FEEL.put_dialect/2`, `dialect/1`, and `dialect_for_language/1` so a host
+  can select the dialect for a whole model.
+- B-FEEL does not emit the warnings the specification suggests, and operations
+  that clause 11 does not cover keep their FEEL behavior.
+
+Not yet supported: the strict error-handling mode.
 
 Validation:
 

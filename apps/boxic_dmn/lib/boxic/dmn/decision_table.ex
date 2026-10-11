@@ -55,9 +55,9 @@ defmodule Boxic.DMN.DecisionTable do
          %DecisionTable{hit_policy: "COLLECT", aggregation: aggregation},
          _rules,
          results,
-         _context
+         context
        ),
-       do: aggregate_collect(aggregation, results)
+       do: aggregate_collect(aggregation, results, Boxic.FEEL.dialect(context))
 
   defp reduce_hit_policy(%DecisionTable{hit_policy: policy} = table, _rules, results, context)
        when policy in ~w(PRIORITY OUTPUT_ORDER) do
@@ -66,16 +66,25 @@ defmodule Boxic.DMN.DecisionTable do
     end
   end
 
-  defp aggregate_collect("COUNT", results), do: {:ok, Decimal.new(length(results))}
-  defp aggregate_collect(_aggregation, []), do: {:ok, nil}
+  defp aggregate_collect("COUNT", results, _dialect), do: {:ok, Decimal.new(length(results))}
 
-  defp aggregate_collect("SUM", results) do
+  # Under B-FEEL (DMN 1.6, 11.3) `sum` ignores non-numeric values and the sum of nothing is 0.
+  defp aggregate_collect("SUM", results, :b_feel) do
+    {:ok,
+     results
+     |> Enum.filter(&match?(%Decimal{}, &1))
+     |> Enum.reduce(Decimal.new(0), &Decimal.add/2)}
+  end
+
+  defp aggregate_collect(_aggregation, [], _dialect), do: {:ok, nil}
+
+  defp aggregate_collect("SUM", results, _dialect) do
     if Enum.all?(results, &match?(%Decimal{}, &1)),
       do: {:ok, Enum.reduce(results, Decimal.new(0), &Decimal.add/2)},
       else: {:error, :collect_aggregation_requires_numbers}
   end
 
-  defp aggregate_collect(aggregation, results) when aggregation in ~w(MIN MAX) do
+  defp aggregate_collect(aggregation, results, _dialect) when aggregation in ~w(MIN MAX) do
     if Enum.all?(results, &match?(%Decimal{}, &1)) do
       chooser =
         case aggregation do

@@ -191,8 +191,40 @@ Boxic.FEEL.evaluate(~S|date and time(date("2024-12-24"), time("23:59:00"), "Euro
 ```
 
 Numbers passed where an integer is expected, such as a rounding scale or a list
-position, are truncated. The strict error mode and the B-FEEL dialect are not
-supported.
+position, are truncated. The strict error mode is not supported.
+
+### B-FEEL
+
+B-FEEL is the Business Friendly Enough Expression Language of DMN 1.6. It has
+FEEL's grammar, but `null` only means missing data: where FEEL returns `null` for
+an error, B-FEEL returns a value of the result type instead.
+
+```elixir
+Boxic.FEEL.evaluate(~S|"a" = 1|)                              # {:ok, nil}
+Boxic.FEEL.evaluate(~S|"a" = 1|, %{}, dialect: :b_feel)       # {:ok, false}
+Boxic.FEEL.evaluate(~S|"Total: " + 5|, %{}, dialect: :b_feel) # {:ok, "Total: 5"}
+Boxic.FEEL.evaluate("sum([1, null, 3])", %{}, dialect: :b_feel) # {:ok, Decimal.new(4)}
+```
+
+| Result type | B-FEEL value instead of `null` |
+| --- | --- |
+| boolean | `false` (`true` for `!=`) |
+| number | `0` |
+| string | `""` |
+| date, time, date and time | the epoch, `1970-01-01T00:00:00Z` |
+| duration | `P0M` |
+| list | `[]` |
+| range | the empty range `(0..0)` |
+
+In a DMN model, set the `expressionLanguage` of the definitions to
+`https://www.omg.org/spec/DMN/20240513/B-FEEL/` to evaluate every expression of the
+model under B-FEEL, or set it on one literal expression to override the model's
+language. A model that declares no language uses FEEL.
+
+Limitations: the warnings the specification suggests are not emitted, operations
+that clause 11 does not cover (such as negating a string) keep their FEEL behavior,
+per-entry languages in decision tables are not honored, and imported models are
+evaluated in the language of the importing model.
 
 ### Elixir external functions
 

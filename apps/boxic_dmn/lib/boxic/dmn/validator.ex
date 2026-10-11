@@ -2,14 +2,15 @@ defmodule Boxic.DMN.Validator do
   @moduledoc false
 
   # FEEL language URIs of DMN 1.3 (20191111), 1.4 (20211108), 1.5 (20230324) and 1.6 (20240513).
-  # The 1.6 B-FEEL dialect (`.../20240513/B-FEEL/`) is deliberately absent: it is not supported.
+  # The B-FEEL dialect of DMN 1.6 is listed with them: it shares FEEL's grammar.
   @feel_languages [
     nil,
     "feel",
     "https://www.omg.org/spec/DMN/20191111/FEEL/",
     "https://www.omg.org/spec/DMN/20211108/FEEL/",
     "https://www.omg.org/spec/DMN/20230324/FEEL/",
-    "https://www.omg.org/spec/DMN/20240513/FEEL/"
+    "https://www.omg.org/spec/DMN/20240513/FEEL/",
+    "https://www.omg.org/spec/DMN/20240513/B-FEEL/"
   ]
 
   alias Boxic.DMN.Model

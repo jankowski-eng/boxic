@@ -90,8 +90,13 @@ defmodule Boxic.DMN.Model.InformationRequirement do
 end
 
 defmodule Boxic.DMN.Model.LiteralExpression do
-  @moduledoc "Normalized FEEL literal expression."
-  defstruct [:id, :text, :type_ref, expression_language: "feel"]
+  @moduledoc """
+  Normalized literal expression.
+
+  `expression_language` is the language URI declared on the expression, or `nil` when it is
+  not declared and the expression inherits the language of the definitions.
+  """
+  defstruct [:id, :text, :type_ref, :expression_language]
 
   @type t :: %__MODULE__{
           id: String.t() | nil,

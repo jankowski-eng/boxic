@@ -1,12 +1,17 @@
 defmodule Boxic.FEEL.Evaluator do
   @moduledoc false
-  alias Boxic.FEEL.{Builtins, Duration, Error, Function, Range, Semantics}
+  alias Boxic.FEEL.{BFEEL, Builtins, Duration, Error, Function, Range, Semantics}
   alias Boxic.FEEL.DateTime, as: FeelDateTime
   alias Boxic.FEEL.Time, as: FeelTime
 
   @epoch_gregorian_days Date.to_gregorian_days(~D[1970-01-01])
 
   def evaluate_unary_test(test_expression, value, context) do
+    result = run_unary_test(test_expression, value, context)
+    if BFEEL.enabled?(context), do: BFEEL.boolean_result(result), else: result
+  end
+
+  defp run_unary_test(test_expression, value, context) do
     trimmed = String.trim(test_expression)
 
     cond do
@@ -127,7 +132,8 @@ defmodule Boxic.FEEL.Evaluator do
 
   def eval({:in, value_ast, tests_ast}, context) do
     with {:ok, value} <- eval(value_ast, context) do
-      evaluate_in(value, tests_ast, context)
+      result = evaluate_in(value, tests_ast, context)
+      if BFEEL.enabled?(context), do: BFEEL.boolean_result(result), else: result
     end
   end
 
@@ -135,8 +141,8 @@ defmodule Boxic.FEEL.Evaluator do
     with {:ok, value} <- eval(value_ast, context),
          {:ok, lower} <- eval(lower_ast, context),
          {:ok, upper} <- eval(upper_ast, context),
-         {:ok, above} <- eval_binary(:gte, value, lower),
-         {:ok, below} <- eval_binary(:lte, value, upper) do
+         {:ok, above} <- binary_operation(context, :gte, value, lower),
+         {:ok, below} <- binary_operation(context, :lte, value, upper) do
       {:ok, feel_and(above, below)}
     end
   end
@@ -213,16 +219,23 @@ defmodule Boxic.FEEL.Evaluator do
   def eval({:call, callee_ast, args_ast}, context) do
     with {:ok, callee} <- eval(callee_ast, context),
          {:ok, arg_values} <- eval_call_args(args_ast, context, []) do
-      case callee do
-        {:builtin, "range"} -> apply_range_function(arg_values, context)
-        _ -> apply_function(callee, arg_values)
+      call = fn args ->
+        case callee do
+          {:builtin, "range"} -> apply_range_function(args, context)
+          _ -> apply_function(callee, args)
+        end
+      end
+
+      case {callee, BFEEL.enabled?(context)} do
+        {{:builtin, name}, true} -> BFEEL.builtin(name, arg_values, call)
+        _ -> call.(arg_values)
       end
     end
   end
 
   def eval({:unary, :not, expr}, context) do
     with {:ok, value} <- eval(expr, context) do
-      {:ok, feel_not(value)}
+      {:ok, if(BFEEL.enabled?(context), do: BFEEL.negate(value), else: feel_not(value))}
     end
   end
 
@@ -240,8 +253,15 @@ defmodule Boxic.FEEL.Evaluator do
   def eval({:binary, op, left, right}, context) do
     with {:ok, left_value} <- eval(left, context),
          {:ok, right_value} <- eval(right, context) do
-      eval_binary(op, left_value, right_value)
+      binary_operation(context, op, left_value, right_value)
     end
+  end
+
+  # Operators are evaluated by FEEL unless the context selects the B-FEEL dialect.
+  defp binary_operation(context, op, left, right) do
+    if BFEEL.enabled?(context),
+      do: BFEEL.binary(op, left, right, &eval_binary/3),
+      else: eval_binary(op, left, right)
   end
 
   defp property_value(%Date{} = value, "year"), do: decimal_new(value.year)

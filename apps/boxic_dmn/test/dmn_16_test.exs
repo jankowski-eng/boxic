@@ -6,9 +6,9 @@ defmodule Boxic.DMN16Test do
   @feel_14 "https://www.omg.org/spec/DMN/20211108/FEEL/"
   @b_feel_16 "https://www.omg.org/spec/DMN/20240513/B-FEEL/"
 
-  defp load!(body) do
+  defp load!(body, definitions_attributes \\ "") do
     xml = """
-    <definitions xmlns="#{@model_16}" id="defs" name="model" namespace="urn:model">
+    <definitions xmlns="#{@model_16}" id="defs" name="model" namespace="urn:model"#{definitions_attributes}>
       #{body}
     </definitions>
     """
@@ -59,11 +59,16 @@ defmodule Boxic.DMN16Test do
       end
     end
 
-    test "reject the B-FEEL dialect, which is not supported" do
+    test "accept the B-FEEL dialect" do
       model = load!(literal_decision("1", @b_feel_16))
 
-      assert {:error, errors} = Boxic.DMN.validate(model)
-      assert Enum.any?(errors, &match?({:unsupported_expression_language, _, @b_feel_16}, &1))
+      assert :ok = Boxic.DMN.validate(model)
+    end
+
+    test "keep an undeclared expression language unspecified" do
+      model = load!(literal_decision("1"))
+
+      assert %{expression: %{expression_language: nil}} = model.decisions["dec"]
     end
 
     test "evaluate the 1.6 FEEL additions inside decisions" do
@@ -180,6 +185,116 @@ defmodule Boxic.DMN16Test do
         )
 
       assert {:error, {:type_error, :list}} = Boxic.DMN.evaluate(model, "Result")
+    end
+  end
+
+  describe "B-FEEL" do
+    defp b_feel_model(body), do: load!(body, ~s( expressionLanguage="#{@b_feel_16}"))
+
+    test "is selected by the expression language of the definitions" do
+      assert {:ok, nil} = Boxic.DMN.evaluate(load!(literal_decision(~S|"a" = 1|)), "Result")
+
+      assert {:ok, false} =
+               Boxic.DMN.evaluate(b_feel_model(literal_decision(~S|"a" = 1|)), "Result")
+    end
+
+    test "applies to the whole model, including decisions that depend on each other" do
+      model =
+        b_feel_model("""
+        <decision id="first" name="First">
+          <variable name="First"/>
+          <literalExpression><text>1 + null</text></literalExpression>
+        </decision>
+        <decision id="dec" name="Result">
+          <variable name="Result"/>
+          <informationRequirement><requiredDecision href="#first"/></informationRequirement>
+          <literalExpression><text>First + "x"</text></literalExpression>
+        </decision>
+        """)
+
+      assert {:ok, "1x"} = Boxic.DMN.evaluate(model, "Result")
+    end
+
+    test "can be overridden per literal expression, in both directions" do
+      feel_in_b_feel = b_feel_model(literal_decision(~S|"a" = 1|, @feel_16))
+      assert {:ok, nil} = Boxic.DMN.evaluate(feel_in_b_feel, "Result")
+
+      b_feel_in_feel = load!(literal_decision(~S|"a" = 1|, @b_feel_16))
+      assert {:ok, false} = Boxic.DMN.evaluate(b_feel_in_feel, "Result")
+    end
+
+    test "applies to business knowledge models and decision services" do
+      model =
+        b_feel_model("""
+        <businessKnowledgeModel id="bkm" name="Increment">
+          <variable name="Increment"/>
+          <encapsulatedLogic>
+            <formalParameter name="x"/>
+            <literalExpression><text>x + 1</text></literalExpression>
+          </encapsulatedLogic>
+        </businessKnowledgeModel>
+        <decision id="dec" name="Result">
+          <variable name="Result"/>
+          <literalExpression><text>"a" &lt; 1</text></literalExpression>
+        </decision>
+        <decisionService id="svc" name="Service">
+          <variable name="Service"/>
+          <outputDecision href="#dec"/>
+        </decisionService>
+        """)
+
+      assert {:ok, one} = Boxic.DMN.evaluate_bkm(model, "Increment", %{"x" => nil})
+      assert Decimal.equal?(one, number(1))
+      assert {:ok, false} = Boxic.DMN.evaluate_service(model, "Service", %{})
+    end
+
+    test "is inherited by functions defined in the model" do
+      model =
+        b_feel_model(
+          boxed_decision("""
+          <context>
+            <contextEntry>
+              <variable name="f"/>
+              <functionDefinition>
+                <formalParameter name="n"/>
+                <literalExpression><text>n * 2</text></literalExpression>
+              </functionDefinition>
+            </contextEntry>
+            <contextEntry><literalExpression><text>f("a")</text></literalExpression></contextEntry>
+          </context>
+          """)
+        )
+
+      assert {:ok, zero} = Boxic.DMN.evaluate(model, "Result")
+      assert Decimal.equal?(zero, number(0))
+    end
+
+    defp collect_sum(outputs) do
+      rules =
+        Enum.map_join(outputs, fn text ->
+          "<rule><inputEntry><text>-</text></inputEntry><outputEntry><text>#{text}</text></outputEntry></rule>"
+        end)
+
+      """
+      <decision id="dec" name="Result">
+        <variable name="Result"/>
+        <decisionTable hitPolicy="COLLECT" aggregation="SUM">
+          <input id="in"><inputExpression typeRef="number"><text>1</text></inputExpression></input>
+          <output id="out" name="value"/>
+          #{rules}
+        </decisionTable>
+      </decision>
+      """
+    end
+
+    test "sums only the numeric outputs of a C+ decision table" do
+      body = collect_sum(["1", ~S|"x"|, "2"])
+
+      assert {:error, :collect_aggregation_requires_numbers} =
+               Boxic.DMN.evaluate(load!(body), "Result")
+
+      assert {:ok, three} = Boxic.DMN.evaluate(b_feel_model(body), "Result")
+      assert Decimal.equal?(three, number(3))
     end
   end
 
