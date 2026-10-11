@@ -50,8 +50,8 @@ Validation returns `:ok` or `{:error, errors}`. Evaluation returns
 ## Compatibility
 
 Boxic targets DMN 1.4. Against the vendored official DMN Technology
-Compatibility Kit revision `0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13`, the
-DMN suite passes all 1,485 selected cases. This result covers the DMN suite;
+Compatibility Kit revision `0456e1a2fa5b9c2382cc7380cc6b95f0031e4793`, the
+DMN suite passes all 1,501 selected cases. This result covers the DMN suite;
 the separate FEEL suite is reported by `boxic_feel`.
 
 Java external-function integration is intentionally not implemented because

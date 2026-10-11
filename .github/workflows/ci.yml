@@ -81,8 +81,8 @@ jobs:
 
       - name: Enforce compatibility regression gates (18 Java cases expected for FEEL)
         run: |
-          mix run scripts/check_tck_regression.exs compatibility/feel-implemented-0dbcaf9b.json artifacts/feel-implemented
-          mix run scripts/check_tck_regression.exs compatibility/dmn-implemented-0dbcaf9b.json artifacts/dmn-implemented
+          mix run scripts/check_tck_regression.exs compatibility/feel-implemented-0456e1a2.json artifacts/feel-implemented
+          mix run scripts/check_tck_regression.exs compatibility/dmn-implemented-0456e1a2.json artifacts/dmn-implemented
 
       - name: Retain compatibility reports
         if: always()

@@ -25,6 +25,12 @@ DMN 1.6 additions:
 
 Not yet supported: the strict error-handling mode and the B-FEEL dialect.
 
+Validation:
+
+- Validate against DMN TCK revision `0456e1a2fa5b9c2382cc7380cc6b95f0031e4793`.
+  The FEEL profile is unchanged at 2,042 passing cases, with the same 18
+  intentionally unsupported Java cases.
+
 Fixes:
 
 - Return an `:invalid_syntax` error for numeric literals that exceed Decimal128

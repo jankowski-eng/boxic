@@ -9,16 +9,16 @@ defmodule Boxic.DMN.TCKTest do
     stats = Loader.corpus_stats()
 
     assert stats == %{
-             test_documents: 150,
-             dmn_models: 154,
-             result_entries: 3_545,
+             test_documents: 155,
+             dmn_models: 160,
+             result_entries: 3_561,
              expected_errors: 1_412,
              load_errors: 0,
              missing_models: 0
            }
 
     pin_path = Path.expand("../../../vendor/dmn-tck/PINNED_COMMIT", __DIR__)
-    assert File.read!(pin_path) |> String.trim() == "0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13"
+    assert File.read!(pin_path) |> String.trim() == "0456e1a2fa5b9c2382cc7380cc6b95f0031e4793"
 
     cases = Loader.load_all()
 
@@ -177,14 +177,14 @@ defmodule Boxic.DMN.TCKTest do
     expected_passes = 2_042
     expected_unsupported = 18
 
-    assert result.summary.corpus_total == 3_545
+    assert result.summary.corpus_total == 3_561
     assert result.summary.suite_total > expected_passes
     assert result.summary.total == expected_passes + expected_unsupported
 
     assert result.summary.disabled ==
              result.summary.suite_total - expected_passes - expected_unsupported
 
-    assert result.summary.excluded_by_suite == 3_545 - result.summary.suite_total
+    assert result.summary.excluded_by_suite == 3_561 - result.summary.suite_total
     assert result.summary.passed == expected_passes
     assert result.summary.unsupported == expected_unsupported
     assert result.summary.failed == 0
@@ -215,15 +215,15 @@ defmodule Boxic.DMN.TCKTest do
   test "DMN implemented profile is an explicit passing decision-table baseline" do
     result = TCK.run(suite: "dmn", profile: "implemented")
 
-    assert result.summary.corpus_total == 3_545
+    assert result.summary.corpus_total == 3_561
     assert result.summary.suite_total > 0
-    assert result.summary.total == 1_485
-    assert result.summary.passed == 1_485
+    assert result.summary.total == 1_501
+    assert result.summary.passed == 1_501
     assert result.summary.failed == 0
     assert result.summary.error == 0
     assert result.summary.disabled == 0
 
-    assert length(TCK.profile_groups("dmn", "implemented")) == 69
+    assert length(TCK.profile_groups("dmn", "implemented")) == 71
   end
 
   defp temporary_corpus_root do

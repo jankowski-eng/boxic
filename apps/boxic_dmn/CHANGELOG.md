@@ -15,9 +15,24 @@ DMN 1.6 additions:
   filter, `for`, `some`, or `every` into a singleton list. `null` is still a type
   error.
 - Evaluate the new FEEL features of `boxic_feel`.
+- Apply the DMN 1.6 implicit type conversions to results and context entries:
+  a single value converts to a singleton list, a singleton list converts to its
+  element (for built-in scalar types and named non-collection types), and a date
+  converts to a date and time at UTC midnight. Context entries are converted to
+  the type declared on their variable.
+- Add `Boxic.DMN.evaluate_bkm/3` to invoke a business knowledge model directly,
+  mirroring `evaluate_service/3`.
+- Validate against DMN TCK revision `0456e1a2fa5b9c2382cc7380cc6b95f0031e4793`,
+  adding the `1157-implicit-conversions` and `1160-multiple-imports` groups. The
+  DMN profile passes all 1,501 cases.
 
-Behavior change:
+Behavior changes:
 
+- A decision, business knowledge model, decision service, or context entry whose
+  result cannot be converted to its declared type now evaluates to `nil` instead
+  of returning `{:error, {:type_error, type}}`, as DMN 1.6 section 10.3.2.9.4
+  specifies. Input data and invocation arguments that do not match their declared
+  type are still rejected.
 - Function definitions and business knowledge model logic whose `kind` is not
   `FEEL` (Java, PMML, and since DMN 1.6 ONNX) are now reported as
   `:unsupported_expression` instead of having their mapping context evaluated as
