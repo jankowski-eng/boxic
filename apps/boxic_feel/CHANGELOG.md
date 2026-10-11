@@ -24,6 +24,9 @@ Fixes, so that results match the specification:
 
 - Support the variadic forms `sum(n1, ..., nN)` and `min(c1, ..., cN)`, and accept a
   single non-list argument for `max(c1, ..., cN)`, as the specification defines.
+- Return `null` for `sum([])`, `mean([])`, and the standard deviation of fewer than two
+  numbers (these returned `0` or an error), and for a range function (`before`, `after`,
+  `includes`, ...) with a `null` argument (it returned `false`).
 
 Security:
 

@@ -358,6 +358,61 @@ defmodule Boxic.FEELTest do
     assert Decimal.equal?(four, Decimal.new(4))
   end
 
+  describe "null results the specification requires" do
+    test "aggregates over no values are null" do
+      for expression <- [
+            "sum([])",
+            "mean([])",
+            "median([])",
+            "product([])",
+            "min([])",
+            "max([])",
+            "stddev([])",
+            "stddev([47])",
+            "stddev(47)"
+          ] do
+        assert {:ok, nil} == Boxic.FEEL.evaluate(expression), expression
+      end
+    end
+
+    test "counting and listing aggregates over no values are not null" do
+      assert {:ok, zero} = Boxic.FEEL.evaluate("count([])")
+      assert Decimal.equal?(zero, Decimal.new(0))
+      assert {:ok, []} = Boxic.FEEL.evaluate("mode([])")
+      assert {:ok, true} = Boxic.FEEL.evaluate("all([])")
+      assert {:ok, false} = Boxic.FEEL.evaluate("any([])")
+    end
+
+    test "aggregates over values still compute" do
+      assert {:ok, six} = Boxic.FEEL.evaluate("sum([1, 2, 3])")
+      assert Decimal.equal?(six, Decimal.new(6))
+      assert {:ok, two} = Boxic.FEEL.evaluate("mean([1, 2, 3])")
+      assert Decimal.equal?(two, Decimal.new(2))
+      assert {:ok, %Decimal{}} = Boxic.FEEL.evaluate("stddev([2, 4, 7, 5])")
+    end
+
+    test "range functions with a null argument are null" do
+      for expression <- [
+            ~S|before(date("2021-01-01"), null)|,
+            ~S|after(null, date("2021-01-01"))|,
+            "before(1, null)",
+            "includes([1..10], null)",
+            "during(null, [1..10])",
+            "overlaps(null, [1..5])",
+            "meets([1..5], null)",
+            "coincides(null, null)"
+          ] do
+        assert {:ok, nil} == Boxic.FEEL.evaluate(expression), expression
+      end
+    end
+
+    test "range functions on values still evaluate" do
+      assert {:ok, true} = Boxic.FEEL.evaluate("before(1, 10)")
+      assert {:ok, true} = Boxic.FEEL.evaluate("includes([1..10], 5)")
+      assert {:ok, false} = Boxic.FEEL.evaluate("after(1, 10)")
+    end
+  end
+
   test "duration arithmetic preserves kinds and temporal boundary semantics" do
     assert {:ok, %Duration{kind: :day_time} = scaled} =
              Boxic.FEEL.evaluate(~S|duration("PT1H") * 2.5|)
