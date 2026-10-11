@@ -7,6 +7,22 @@ The project follows Semantic Versioning. While the package is below version
 
 ## Unreleased
 
+DMN 1.6 additions:
+
+- Accept the FEEL language URIs of DMN 1.4 (`20211108`) and DMN 1.6 (`20240513`).
+  The B-FEEL URI is still reported as an unsupported expression language.
+- Implicitly convert a single value used as the `in` expression of a boxed
+  filter, `for`, `some`, or `every` into a singleton list. `null` is still a type
+  error.
+- Evaluate the new FEEL features of `boxic_feel`.
+
+Behavior change:
+
+- Function definitions and business knowledge model logic whose `kind` is not
+  `FEEL` (Java, PMML, and since DMN 1.6 ONNX) are now reported as
+  `:unsupported_expression` instead of having their mapping context evaluated as
+  FEEL.
+
 Fixes:
 
 - A decision table input entry that cannot be decided for the input, such as a range

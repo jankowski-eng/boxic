@@ -163,8 +163,7 @@ defmodule Boxic.DMN.Evaluator do
   end
 
   defp evaluate_expression(%FilterExpression{} = expression, context, model) do
-    with {:ok, source} <- evaluate_expression(expression.source, context, model),
-         true <- is_list(source) do
+    with {:ok, source} <- evaluate_collection(expression.source, context, model) do
       Enum.reduce_while(source, {:ok, []}, fn item, {:ok, result} ->
         case evaluate_expression(expression.match, bind_boxed_item(context, item), model) do
           {:ok, true} -> {:cont, {:ok, result ++ [item]}}
@@ -173,15 +172,11 @@ defmodule Boxic.DMN.Evaluator do
           {:error, _reason} = error -> {:halt, error}
         end
       end)
-    else
-      false -> {:error, {:type_error, :list}}
-      {:error, _reason} = error -> error
     end
   end
 
   defp evaluate_expression(%IteratorExpression{kind: :for} = expression, context, model) do
-    with {:ok, source} <- evaluate_expression(expression.source, context, model),
-         true <- is_list(source) do
+    with {:ok, source} <- evaluate_collection(expression.source, context, model) do
       Enum.reduce_while(source, {:ok, []}, fn item, {:ok, result} ->
         case evaluate_expression(
                expression.body,
@@ -192,19 +187,12 @@ defmodule Boxic.DMN.Evaluator do
           {:error, _reason} = error -> {:halt, error}
         end
       end)
-    else
-      false -> {:error, {:type_error, :list}}
-      {:error, _reason} = error -> error
     end
   end
 
   defp evaluate_expression(%IteratorExpression{} = expression, context, model) do
-    with {:ok, source} <- evaluate_expression(expression.source, context, model),
-         true <- is_list(source) do
+    with {:ok, source} <- evaluate_collection(expression.source, context, model) do
       evaluate_boxed_quantifier(expression.kind, source, expression, context, model)
-    else
-      false -> {:error, {:type_error, :list}}
-      {:error, _reason} = error -> error
     end
   end
 
@@ -212,6 +200,18 @@ defmodule Boxic.DMN.Evaluator do
 
   defp evaluate_expression({:unsupported, kind}, _context, _model),
     do: {:error, {:unsupported_expression, kind}}
+
+  # The `in` expression of a boxed filter or iterator must resolve to a collection. Since
+  # DMN 1.6 (10.3.2.9.4) a single non-null value is implicitly converted to a singleton list.
+  defp evaluate_collection(expression, context, model) do
+    with {:ok, source} <- evaluate_expression(expression, context, model) do
+      case source do
+        list when is_list(list) -> {:ok, list}
+        nil -> {:error, {:type_error, :list}}
+        value -> {:ok, [value]}
+      end
+    end
+  end
 
   defp evaluate_boxed_quantifier(kind, source, expression, context, model) do
     initial = if kind == :every, do: true, else: false

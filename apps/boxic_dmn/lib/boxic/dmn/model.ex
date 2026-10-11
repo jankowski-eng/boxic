@@ -249,14 +249,28 @@ defmodule Boxic.DMN.Model.DecisionService do
 end
 
 defmodule Boxic.DMN.Model.ItemDefinition do
-  @moduledoc "Normalized DMN item definition with recursive components."
-  defstruct [:id, :name, :type_ref, :allowed_values, :is_collection, components: []]
+  @moduledoc """
+  Normalized DMN item definition with recursive components.
+
+  `type_constraint` holds the DMN 1.5 `typeConstraint` unary tests, which replace the
+  deprecated `allowed_values`. Both are retained as text; neither is enforced yet.
+  """
+  defstruct [
+    :id,
+    :name,
+    :type_ref,
+    :allowed_values,
+    :type_constraint,
+    :is_collection,
+    components: []
+  ]
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
           name: String.t() | nil,
           type_ref: String.t() | nil,
           allowed_values: String.t() | nil,
+          type_constraint: String.t() | nil,
           is_collection: boolean() | nil,
           components: [Boxic.DMN.Model.ItemComponent.t()]
         }
@@ -264,13 +278,22 @@ end
 
 defmodule Boxic.DMN.Model.ItemComponent do
   @moduledoc "Normalized component of a DMN item definition."
-  defstruct [:id, :name, :type_ref, :allowed_values, :is_collection, components: []]
+  defstruct [
+    :id,
+    :name,
+    :type_ref,
+    :allowed_values,
+    :type_constraint,
+    :is_collection,
+    components: []
+  ]
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
           name: String.t() | nil,
           type_ref: String.t() | nil,
           allowed_values: String.t() | nil,
+          type_constraint: String.t() | nil,
           is_collection: boolean() | nil,
           components: [t()]
         }
