@@ -15,6 +15,10 @@ Fixes:
 - Return `nil` from a unary test whose value is null, instead of raising
   `ArgumentError` when the test is negated (`not([1..10])`). `evaluate_unary_test/3`
   is specified as returning a boolean or `nil`.
+- Decide a range test for a value that cannot be compared with the bounds as `null`,
+  not by Erlang's term order: `"a" in [1..100]` and `1 in ["a".."z"]` returned
+  `false`. Bounds are only compared when both are numbers, strings, booleans, or the
+  same kind of temporal value, and the two bound tests combine with three-valued `and`.
 
 Security:
 

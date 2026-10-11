@@ -270,6 +270,40 @@ defmodule Boxic.FEELTest do
     end
   end
 
+  describe "range tests on values that cannot be compared with the bounds" do
+    test "are null, not decided by Erlang's term order" do
+      for expression <- [
+            ~S|"a" in [1..100]|,
+            ~S|1 in ["a".."z"]|,
+            ~S|date("2021-01-01") in [1..5]|,
+            ~S|true in [1..5]|,
+            "[1] in [1..5]"
+          ] do
+        assert {:ok, nil} == Boxic.FEEL.evaluate(expression), expression
+      end
+    end
+
+    test "are null as unary tests too, also when negated" do
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("[1..100]", "a")
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("not([1..100])", "a")
+    end
+
+    test "do not affect values that can be compared" do
+      assert {:ok, true} = Boxic.FEEL.evaluate("5 in [1..10]")
+      assert {:ok, false} = Boxic.FEEL.evaluate("50 in [1..10]")
+      assert {:ok, false} = Boxic.FEEL.evaluate("10 in [1..10)")
+      assert {:ok, true} = Boxic.FEEL.evaluate(~S|"m" in ["a".."z"]|)
+      assert {:ok, false} = Boxic.FEEL.evaluate(~S|"zz" in ["a".."z"]|)
+
+      assert {:ok, true} =
+               Boxic.FEEL.evaluate(
+                 ~S|date("2021-06-01") in [date("2021-01-01")..date("2021-12-31")]|
+               )
+
+      assert {:ok, nil} == Boxic.FEEL.evaluate("null in [1..10]")
+    end
+  end
+
   describe "numeric literals beyond the supported range" do
     # Decimal rejects literals with more than 34 significant digits or a decimal exponent
     # beyond +-6144. Those must surface as syntax errors, never as raised exceptions.
