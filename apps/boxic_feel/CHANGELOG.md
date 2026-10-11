@@ -5,6 +5,26 @@ All notable changes to `boxic_feel` will be documented in this file.
 The project follows Semantic Versioning. While the package is below version
 1.0.0, breaking changes increment the minor version.
 
+## Unreleased
+
+DMN 1.6 additions:
+
+- Add the `...` descendant operator, e.g. `{a: {b: {b: 1}}}...b` evaluates to
+  `[{b: 1}, 1]`. It collects matching entries of a context, its nested contexts,
+  and contexts nested in lists.
+- Add the `value` property for dates, times, date and time values, and both
+  duration kinds. A date and time without a zone has no position on the timeline,
+  so its `value` is `null`.
+- Add single-parameter forms of `round up`, `round down`, `round half up`, and
+  `round half down`; the scale defaults to 0.
+- Add `date and time(date, time, timezone)`, where `timezone` is an offset or an
+  IANA identifier.
+- Apply the implicit decimal-to-integer conversion: a fractional rounding scale,
+  list position or length, or date and time component is truncated instead of
+  producing an error. Time zone offsets remain strict.
+
+Not yet supported: the strict error-handling mode and the B-FEEL dialect.
+
 ## 0.1.0 - 2026-07-18
 
 - Initial public release.

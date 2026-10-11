@@ -163,6 +163,7 @@ defmodule Boxic.FEEL.Tokenizer do
   defp tokenize(<<"date and time", rest::binary>>, acc),
     do: tokenize(rest, [{:identifier, "date_time"} | acc])
 
+  defp tokenize(<<"...", rest::binary>>, acc), do: tokenize(rest, [:descendant | acc])
   defp tokenize(<<"..", rest::binary>>, acc), do: tokenize(rest, [:range_dots | acc])
 
   defp tokenize(<<".", digit::utf8, _rest::binary>> = input, acc)
