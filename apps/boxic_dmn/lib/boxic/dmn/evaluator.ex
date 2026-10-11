@@ -19,6 +19,21 @@ defmodule Boxic.DMN.Evaluator do
   alias Boxic.DMN.DecisionTable, as: DecisionTableEvaluator
   alias Boxic.FEEL.ExternalFunctions
 
+  @singleton_unwrap_types [
+    "string",
+    "number",
+    "boolean",
+    "date",
+    "time",
+    "date and time",
+    "dateTime",
+    "duration",
+    "dayTimeDuration",
+    "yearMonthDuration",
+    "days and time duration",
+    "years and months duration"
+  ]
+
   @type evaluation_error ::
           Boxic.FEEL.Error.t()
           | {atom(), term()}
@@ -46,6 +61,20 @@ defmodule Boxic.DMN.Evaluator do
       end
 
     evaluate(model, decision_name, Map.merge(context, external_context))
+  end
+
+  @spec evaluate_bkm(Model.t(), String.t(), map() | list()) ::
+          {:ok, term()} | {:error, evaluation_error()}
+  def evaluate_bkm(%Model{} = model, bkm_name, arguments)
+      when is_binary(bkm_name) and (is_map(arguments) or is_list(arguments)) do
+    with {:ok, bkm} <- find_bkm(model, bkm_name) do
+      args =
+        if is_map(arguments),
+          do: Enum.map(arguments, fn {name, value} -> {:named_arg, name, value} end),
+          else: arguments
+
+      invoke_bkm_from_feel(model, bkm, %{}, args)
+    end
   end
 
   @spec evaluate_service(Model.t(), String.t(), map() | list()) ::
@@ -78,7 +107,7 @@ defmodule Boxic.DMN.Evaluator do
                resolve_requirements(model, decision, context, memo, visiting),
              {:ok, value} <- evaluate_expression(decision.expression, dependency_context, model),
              {:ok, value} <-
-               coerce_type(value, decision.variable && decision.variable.type_ref, model) do
+               coerce_result(value, decision.variable && decision.variable.type_ref, model) do
           {:ok, value, Map.put(memo, decision.id, value)}
         else
           nil -> {:error, {:missing_expression, decision.id}}
@@ -94,7 +123,7 @@ defmodule Boxic.DMN.Evaluator do
     context = Map.put(context, "__feel_types__", model.item_definitions)
 
     with {:ok, value} <- Boxic.FEEL.evaluate(text, context) do
-      coerce_type(value, type_ref, model)
+      coerce_result(value, type_ref, model)
     end
   end
 
@@ -248,8 +277,14 @@ defmodule Boxic.DMN.Evaluator do
       case evaluate_expression(entry.expression, scope, model) do
         {:ok, value} ->
           case entry.variable do
-            %Variable{name: name} when is_binary(name) ->
-              {:cont, {:ok, Map.put(result, name, value), Map.put(scope, name, value)}}
+            %Variable{name: name} = variable when is_binary(name) ->
+              case coerce_result(value, variable.type_ref, model) do
+                {:ok, value} ->
+                  {:cont, {:ok, Map.put(result, name, value), Map.put(scope, name, value)}}
+
+                {:error, _reason} = error ->
+                  {:halt, error}
+              end
 
             nil when index == length(entries) - 1 ->
               {:halt, {:result, value}}
@@ -444,7 +479,7 @@ defmodule Boxic.DMN.Evaluator do
            resolve_requirements(model, bkm, context, %{}, MapSet.new()),
          {:ok, result} <-
            evaluate_expression(bkm.expression, Map.merge(bkm_context, bindings), model) do
-      coerce_type(result, bkm.variable && bkm.variable.type_ref, model)
+      coerce_result(result, bkm.variable && bkm.variable.type_ref, model)
     else
       nil -> {:error, :missing_invocation_function}
       error -> error
@@ -482,7 +517,7 @@ defmodule Boxic.DMN.Evaluator do
              |> Map.merge(Map.new(Enum.zip(names, values))),
              model
            ) do
-      coerce_type(result, bkm.variable && bkm.variable.type_ref, model)
+      coerce_result(result, bkm.variable && bkm.variable.type_ref, model)
     end
   end
 
@@ -529,7 +564,7 @@ defmodule Boxic.DMN.Evaluator do
           values -> Map.new(values)
         end
 
-      coerce_type(result, service.variable && service.variable.type_ref, model)
+      coerce_result(result, service.variable && service.variable.type_ref, model)
     end
   end
 
@@ -578,10 +613,21 @@ defmodule Boxic.DMN.Evaluator do
     end)
   end
 
+  # DMN 1.6 (10.3.2.9.4): when an expression is mandatorily converted to a target type but
+  # cannot be, the result is null. Only a failed type conversion is turned into null here;
+  # other failures, such as a missing context component, are still reported.
+  defp coerce_result(value, type, model) do
+    case coerce_type(value, type, model) do
+      {:error, {:type_error, _type}} -> {:ok, nil}
+      result -> result
+    end
+  end
+
   defp coerce_type(value, nil, _model), do: {:ok, value}
   defp coerce_type(nil, _type, _model), do: {:ok, nil}
 
-  defp coerce_type([value], type, model) when type in ["string", "number", "boolean"],
+  # "from singleton list": a one-element list converts to its element for a non-list target.
+  defp coerce_type([value], type, model) when type in @singleton_unwrap_types,
     do: coerce_type(value, type, model)
 
   defp coerce_type(value, "string", _model) when is_binary(value), do: {:ok, value}
@@ -607,6 +653,12 @@ defmodule Boxic.DMN.Evaluator do
       {:ok, time} -> {:ok, time}
       :error -> {:error, {:type_error, "time"}}
     end
+  end
+
+  # "from date to date and time": the date at UTC midnight.
+  defp coerce_type(%Date{} = value, type, _model) when type in ["date and time", "dateTime"] do
+    {:ok, midnight} = Boxic.FEEL.Time.new(0, 0, 0, {:offset, 0})
+    {:ok, Boxic.FEEL.DateTime.new(value, midnight)}
   end
 
   defp coerce_type(%Boxic.FEEL.DateTime{} = value, "date and time", _model), do: {:ok, value}
@@ -720,7 +772,30 @@ defmodule Boxic.DMN.Evaluator do
     end)
   end
 
-  defp coerce_item_definition(value, %{components: components} = definition, model)
+  defp coerce_item_definition([single] = value, definition, model) do
+    if unwrap_singleton?(definition, model),
+      do: coerce_item_definition(single, definition, model),
+      else: coerce_item_value(value, definition, model)
+  end
+
+  defp coerce_item_definition(value, definition, model),
+    do: coerce_item_value(value, definition, model)
+
+  # A singleton list converts to its element unless the definition denotes a collection,
+  # an unconstrained value, or a function.
+  defp unwrap_singleton?(%{components: components}, _model) when components != [], do: true
+  defp unwrap_singleton?(%{type_ref: type}, _model) when type in [nil, "Any"], do: false
+  defp unwrap_singleton?(%{type_ref: "function:" <> _output}, _model), do: false
+
+  defp unwrap_singleton?(%{type_ref: type}, model) do
+    case find_item_definition(model, type) do
+      nil -> true
+      %{is_collection: true} -> false
+      definition -> unwrap_singleton?(definition, model)
+    end
+  end
+
+  defp coerce_item_value(value, %{components: components} = definition, model)
        when components != [] do
     if is_map(value) and not is_struct(value) do
       Enum.reduce_while(components, {:ok, value}, fn component, {:ok, result} ->
@@ -742,7 +817,7 @@ defmodule Boxic.DMN.Evaluator do
     end
   end
 
-  defp coerce_item_definition(value, definition, model),
+  defp coerce_item_value(value, definition, model),
     do: coerce_item_base(value, definition.type_ref, model)
 
   defp coerce_item_component(value, %{is_collection: true} = component, model) do
