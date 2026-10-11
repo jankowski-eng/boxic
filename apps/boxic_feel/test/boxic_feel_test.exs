@@ -257,6 +257,19 @@ defmodule Boxic.FEELTest do
     assert {:ok, "true"} = Boxic.FEEL.evaluate("string(true)")
   end
 
+  describe "unary tests on a null value" do
+    test "are null rather than raising, also when negated" do
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("[1..100]", nil)
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("not([1..100])", nil)
+    end
+
+    test "still decide values that can be tested" do
+      assert {:ok, true} = Boxic.FEEL.evaluate_unary_test("[1..100]", Decimal.new(5))
+      assert {:ok, false} = Boxic.FEEL.evaluate_unary_test("not([1..100])", Decimal.new(5))
+      assert {:ok, true} = Boxic.FEEL.evaluate_unary_test("not([1..100])", Decimal.new(500))
+    end
+  end
+
   describe "numeric literals beyond the supported range" do
     # Decimal rejects literals with more than 34 significant digits or a decimal exponent
     # beyond +-6144. Those must surface as syntax errors, never as raised exceptions.

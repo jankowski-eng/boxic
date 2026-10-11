@@ -12,6 +12,9 @@ Fixes:
 - Return an `:invalid_syntax` error for numeric literals that exceed Decimal128
   limits (more than 34 significant digits, or an exponent beyond +-6144, such as
   `1e-6176`) instead of raising `Decimal.Error`.
+- Return `nil` from a unary test whose value is null, instead of raising
+  `ArgumentError` when the test is negated (`not([1..10])`). `evaluate_unary_test/3`
+  is specified as returning a boolean or `nil`.
 
 Security:
 

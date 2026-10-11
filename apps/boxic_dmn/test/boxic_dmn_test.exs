@@ -71,6 +71,30 @@ defmodule Boxic.DMNTest do
     assert Decimal.equal?(result, Decimal.new(456))
   end
 
+  test "a decision table rule does not match a null input for a range entry" do
+    xml = """
+    <definitions id="defs" name="ranges" namespace="urn:ranges">
+      <inputData id="value" name="Value"><variable name="Value" typeRef="number"/></inputData>
+      <decision id="dec" name="Result">
+        <variable name="Result"/>
+        <informationRequirement><requiredInput href="#value"/></informationRequirement>
+        <decisionTable hitPolicy="FIRST">
+          <input id="in"><inputExpression typeRef="number"><text>Value</text></inputExpression></input>
+          <output id="out"/>
+          <rule><inputEntry><text>[1..10]</text></inputEntry><outputEntry><text>"low"</text></outputEntry></rule>
+          <rule><inputEntry><text>not([1..10])</text></inputEntry><outputEntry><text>"high"</text></outputEntry></rule>
+          <rule><inputEntry><text>-</text></inputEntry><outputEntry><text>"other"</text></outputEntry></rule>
+        </decisionTable>
+      </decision>
+    </definitions>
+    """
+
+    assert {:ok, model} = Boxic.DMN.load_xml(xml)
+    assert {:ok, "other"} = Boxic.DMN.evaluate(model, "Result", %{"Value" => nil})
+    assert {:ok, "low"} = Boxic.DMN.evaluate(model, "Result", %{"Value" => Decimal.new(5)})
+    assert {:ok, "high"} = Boxic.DMN.evaluate(model, "Result", %{"Value" => Decimal.new(50)})
+  end
+
   test "validator reports missing metadata and unresolved references" do
     xml = """
     <definitions id="defs" name="demo">

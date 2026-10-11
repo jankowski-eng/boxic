@@ -169,6 +169,8 @@ defmodule Boxic.DMN.DecisionTable do
       case Boxic.FEEL.evaluate_unary_test(test, value, context) do
         {:ok, true} -> {:halt, {:ok, true}}
         {:ok, false} -> {:cont, {:ok, false}}
+        # A test that cannot be decided for the input (null) does not satisfy the entry.
+        {:ok, nil} -> {:cont, {:ok, false}}
         {:error, _reason} = error -> {:halt, error}
       end
     end)

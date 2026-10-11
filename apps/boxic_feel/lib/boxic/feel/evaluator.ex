@@ -15,7 +15,7 @@ defmodule Boxic.FEEL.Evaluator do
         inner = trimmed |> String.slice(4, String.length(trimmed) - 5)
 
         with {:ok, matches?} <- evaluate_unary_test(inner, value, context),
-             do: {:ok, not matches?}
+             do: {:ok, feel_not(matches?)}
 
       comparator_unary_test?(trimmed) ->
         eval_comparator_unary_test(trimmed, value, context)
