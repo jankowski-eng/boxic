@@ -333,14 +333,14 @@ mix tck --all --soft-fail --report artifacts/tck-full --format both
 
 ### Current compatibility report
 
-The committed reports were generated on Elixir 1.19.1 / OTP 28 against DMN
-1.4 TCK commit `0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13`.
+The committed reports were generated on Elixir 1.20.4 / OTP 29 against DMN
+TCK commit `0456e1a2fa5b9c2382cc7380cc6b95f0031e4793`.
 
 | Suite | Passed | Unsupported | Failed / missing / error | Suite coverage | Supported-scope compatibility |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | FEEL | 2,042 | 18 | 0 | 99.13% | 100% |
-| DMN | 1,485 | 0 | 0 | 100% | 100% |
-| Combined | 3,527 | 18 | 0 | 99.49% | 100% |
+| DMN | 1,501 | 0 | 0 | 100% | 100% |
+| Combined | 3,543 | 18 | 0 | 99.49% | 100% |
 
 These results provide strong evidence that Boxic implements DMN **compliance
 level 3**: it executes the Level 3 FEEL language and boxed-expression cases,
@@ -357,9 +357,9 @@ integration for Elixir applications without pretending to implement Java
 interop.
 
 The source reports are
-[`compatibility/feel-implemented-0dbcaf9b.json`](compatibility/feel-implemented-0dbcaf9b.json)
+[`compatibility/feel-implemented-0456e1a2.json`](compatibility/feel-implemented-0456e1a2.json)
 and
-[`compatibility/dmn-implemented-0dbcaf9b.json`](compatibility/dmn-implemented-0dbcaf9b.json).
+[`compatibility/dmn-implemented-0456e1a2.json`](compatibility/dmn-implemented-0456e1a2.json).
 See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the compatibility delta and
 release procedure.
 

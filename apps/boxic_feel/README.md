@@ -36,7 +36,7 @@ All public entry points return `{:ok, value}` or
 ## Compatibility
 
 Against the vendored official DMN Technology Compatibility Kit revision
-`0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13`, Boxic passes 2,042 of the 2,060
+`0456e1a2fa5b9c2382cc7380cc6b95f0031e4793`, Boxic passes 2,042 of the 2,060
 selected FEEL cases. The remaining 18 are Java external-function integration
 cases and are reported explicitly as unsupported. Compatibility on the
 supported scope is 100%.

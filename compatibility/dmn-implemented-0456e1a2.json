@@ -1,32 +1,32 @@
 {
   "metadata": {
     "profile": "implemented",
-    "elixir_version": "1.19.1",
-    "otp_version": "28",
+    "elixir_version": "1.20.4",
+    "otp_version": "29",
     "suite": "dmn",
     "dmn_package_version": "0.1.0",
     "dmn_specification_version": "1.4",
-    "dmn_tck_commit": "0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13",
+    "dmn_tck_commit": "0456e1a2fa5b9c2382cc7380cc6b95f0031e4793",
     "engine_version": "0.1.0",
-    "execution_date": "2026-07-16T20:16:32.229460Z",
+    "execution_date": "2026-10-11T10:21:09.564684Z",
     "feel_package_version": "0.1.0",
     "report_schema_version": "1.0"
   },
   "summary": {
     "error": 0,
     "disabled": 0,
-    "total": 1485,
+    "total": 1501,
     "unsupported": 0,
-    "supported": 1485,
+    "supported": 1501,
     "missing": 0,
     "failed": 0,
-    "corpus_total": 3545,
-    "suite_total": 1485,
+    "corpus_total": 3561,
+    "suite_total": 1501,
     "excluded_by_suite": 2060,
-    "passed": 1485,
+    "passed": 1501,
     "compatibility_percent": 100.0,
     "suite_coverage_percent": 100.0,
-    "coverage_percent": 41.89
+    "coverage_percent": 42.15
   },
   "results": [
     {
@@ -167,11 +167,11 @@
       "actual": [
         {
           "type": "number",
-          "value": "966.3967422049753602329650999"
+          "value": "966.3967422049753602329651244861695"
         },
         {
           "type": "number",
-          "value": "376.5090706325024247283858569"
+          "value": "376.5090706325024247283858289020851"
         }
       ],
       "expected": [
@@ -298,7 +298,7 @@
       "group": "0004-lending",
       "actual": {
         "type": "number",
-        "value": "1680.880325608634796819003610"
+        "value": "1680.880325608634796819003637073065"
       },
       "expected": {
         "type": "number",
@@ -376,7 +376,7 @@
       "group": "0005-literal-invocation",
       "actual": {
         "type": "number",
-        "value": "2878.693549432766768088520375"
+        "value": "2878.693549432766768088520383236288"
       },
       "expected": {
         "type": "number",
@@ -394,7 +394,7 @@
       "group": "0005-literal-invocation",
       "actual": {
         "type": "number",
-        "value": "662.7073593732659271562143668"
+        "value": "662.7073593732659271562143285576407"
       },
       "expected": {
         "type": "number",
@@ -412,7 +412,7 @@
       "group": "0005-literal-invocation",
       "actual": {
         "type": "number",
-        "value": "2961.033777003901636716262772"
+        "value": "2961.033777003901636716262779605790"
       },
       "expected": {
         "type": "number",
@@ -932,7 +932,7 @@
       "group": "0008-LX-arithmetic",
       "actual": {
         "type": "number",
-        "value": "2778.693549432766768088520375"
+        "value": "2778.693549432766768088520383236288"
       },
       "expected": {
         "type": "number",
@@ -950,7 +950,7 @@
       "group": "0008-LX-arithmetic",
       "actual": {
         "type": "number",
-        "value": "562.7073593732659271562143668"
+        "value": "562.7073593732659271562143285576407"
       },
       "expected": {
         "type": "number",
@@ -968,7 +968,7 @@
       "group": "0008-LX-arithmetic",
       "actual": {
         "type": "number",
-        "value": "2861.033777003901636716262772"
+        "value": "2861.033777003901636716262779605790"
       },
       "expected": {
         "type": "number",
@@ -1544,7 +1544,7 @@
       "group": "0009-invocation-arithmetic",
       "actual": {
         "type": "number",
-        "value": "2878.693549432766768088520375"
+        "value": "2878.693549432766768088520383236288"
       },
       "expected": {
         "type": "number",
@@ -1562,7 +1562,7 @@
       "group": "0009-invocation-arithmetic",
       "actual": {
         "type": "number",
-        "value": "662.7073593732659271562143668"
+        "value": "662.7073593732659271562143285576407"
       },
       "expected": {
         "type": "number",
@@ -1580,7 +1580,7 @@
       "group": "0009-invocation-arithmetic",
       "actual": {
         "type": "number",
-        "value": "2961.033777003901636716262772"
+        "value": "2961.033777003901636716262779605790"
       },
       "expected": {
         "type": "number",
@@ -2921,7 +2921,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1229130806675864888391782024"
+              "value": "0.1229130806675864888391782030891128"
             },
             "fee": {
               "type": "number",
@@ -2934,7 +2934,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1481.847469769120902911415323"
+              "value": "1481.847469769120902911415325410920"
             },
             "points": {
               "type": "number",
@@ -2952,7 +2952,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1137029731874587934446846032"
+              "value": "0.1137029731874587934446846162699240"
             },
             "fee": {
               "type": "number",
@@ -2965,7 +2965,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1454.515807764692215596584997"
+              "value": "1454.515807764692215596585144120557"
             },
             "points": {
               "type": "number",
@@ -2983,7 +2983,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219807467513805938540322232"
+              "value": "0.1219807467513805938540322263850632"
             },
             "fee": {
               "type": "number",
@@ -2996,7 +2996,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1465.681565899863510819264677"
+              "value": "1465.681565899863510819264705552203"
             },
             "points": {
               "type": "number",
@@ -3014,7 +3014,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1154298007315239099518616320"
+              "value": "0.1154298007315239099518616327317256"
             },
             "fee": {
               "type": "number",
@@ -3027,7 +3027,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1423.318353709275504544890163"
+              "value": "1423.318353709275504544890172906070"
             },
             "points": {
               "type": "number",
@@ -3045,7 +3045,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219478687825970483711604072"
+              "value": "0.1219478687825970483711604225076944"
             },
             "fee": {
               "type": "number",
@@ -3058,7 +3058,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1430.409890005738806923767053"
+              "value": "1430.409890005738806923767229688187"
             },
             "points": {
               "type": "number",
@@ -3076,7 +3076,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1207829702481517269343529080"
+              "value": "0.1207829702481517269343529237944616"
             },
             "fee": {
               "type": "number",
@@ -3089,7 +3089,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1432.307593257382315875048752"
+              "value": "1432.307593257382315875048929769800"
             },
             "points": {
               "type": "number",
@@ -3107,7 +3107,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1200230251545745307825755560"
+              "value": "0.1200230251545745307825755713607728"
             },
             "fee": {
               "type": "number",
@@ -3120,7 +3120,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1433.545598313194898464033879"
+              "value": "1433.545598313194898464034056911078"
             },
             "points": {
               "type": "number",
@@ -3138,7 +3138,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1160760438900092317382232856"
+              "value": "0.1160760438900092317382233014543120"
             },
             "fee": {
               "type": "number",
@@ -3151,7 +3151,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1439.975513845287239177067359"
+              "value": "1439.975513845287239177067537323045"
             },
             "points": {
               "type": "number",
@@ -3169,7 +3169,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1261025270361081947340171064"
+              "value": "0.1261025270361081947340170865041680"
             },
             "fee": {
               "type": "number",
@@ -3182,7 +3182,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1441.194429734569798816940817"
+              "value": "1441.194429734569798816940611550537"
             },
             "points": {
               "type": "number",
@@ -3200,7 +3200,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1238778822515121156167560792"
+              "value": "0.1238778822515121156167560595555856"
             },
             "fee": {
               "type": "number",
@@ -3213,7 +3213,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1444.863219004349967260443140"
+              "value": "1444.863219004349967260442933552328"
             },
             "points": {
               "type": "number",
@@ -3233,7 +3233,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1229130806675864888391782024"
+              "value": "0.1229130806675864888391782030891128"
             },
             "fee": {
               "type": "number",
@@ -3246,7 +3246,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1481.847469769120902911415323"
+              "value": "1481.847469769120902911415325410920"
             },
             "points": {
               "type": "number",
@@ -3264,7 +3264,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1261025270361081947340171064"
+              "value": "0.1261025270361081947340170865041680"
             },
             "fee": {
               "type": "number",
@@ -3277,7 +3277,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1441.194429734569798816940817"
+              "value": "1441.194429734569798816940611550537"
             },
             "points": {
               "type": "number",
@@ -3295,7 +3295,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219807467513805938540322232"
+              "value": "0.1219807467513805938540322263850632"
             },
             "fee": {
               "type": "number",
@@ -3308,7 +3308,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1465.681565899863510819264677"
+              "value": "1465.681565899863510819264705552203"
             },
             "points": {
               "type": "number",
@@ -3326,7 +3326,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1238778822515121156167560792"
+              "value": "0.1238778822515121156167560595555856"
             },
             "fee": {
               "type": "number",
@@ -3339,7 +3339,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1444.863219004349967260443140"
+              "value": "1444.863219004349967260442933552328"
             },
             "points": {
               "type": "number",
@@ -3357,7 +3357,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219478687825970483711604072"
+              "value": "0.1219478687825970483711604225076944"
             },
             "fee": {
               "type": "number",
@@ -3370,7 +3370,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1430.409890005738806923767053"
+              "value": "1430.409890005738806923767229688187"
             },
             "points": {
               "type": "number",
@@ -3388,7 +3388,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1207829702481517269343529080"
+              "value": "0.1207829702481517269343529237944616"
             },
             "fee": {
               "type": "number",
@@ -3401,7 +3401,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1432.307593257382315875048752"
+              "value": "1432.307593257382315875048929769800"
             },
             "points": {
               "type": "number",
@@ -3419,7 +3419,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1200230251545745307825755560"
+              "value": "0.1200230251545745307825755713607728"
             },
             "fee": {
               "type": "number",
@@ -3432,7 +3432,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1433.545598313194898464033879"
+              "value": "1433.545598313194898464034056911078"
             },
             "points": {
               "type": "number",
@@ -3450,7 +3450,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1160760438900092317382232856"
+              "value": "0.1160760438900092317382233014543120"
             },
             "fee": {
               "type": "number",
@@ -3463,7 +3463,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1439.975513845287239177067359"
+              "value": "1439.975513845287239177067537323045"
             },
             "points": {
               "type": "number",
@@ -3481,7 +3481,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1137029731874587934446846032"
+              "value": "0.1137029731874587934446846162699240"
             },
             "fee": {
               "type": "number",
@@ -3494,7 +3494,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1454.515807764692215596584997"
+              "value": "1454.515807764692215596585144120557"
             },
             "points": {
               "type": "number",
@@ -3512,7 +3512,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1154298007315239099518616320"
+              "value": "0.1154298007315239099518616327317256"
             },
             "fee": {
               "type": "number",
@@ -3525,7 +3525,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1423.318353709275504544890163"
+              "value": "1423.318353709275504544890172906070"
             },
             "points": {
               "type": "number",
@@ -3545,7 +3545,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1261025270361081947340171064"
+              "value": "0.1261025270361081947340170865041680"
             },
             "fee": {
               "type": "number",
@@ -3558,7 +3558,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1441.194429734569798816940817"
+              "value": "1441.194429734569798816940611550537"
             },
             "points": {
               "type": "number",
@@ -3576,7 +3576,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1238778822515121156167560792"
+              "value": "0.1238778822515121156167560595555856"
             },
             "fee": {
               "type": "number",
@@ -3589,7 +3589,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1444.863219004349967260443140"
+              "value": "1444.863219004349967260442933552328"
             },
             "points": {
               "type": "number",
@@ -3607,7 +3607,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1229130806675864888391782024"
+              "value": "0.1229130806675864888391782030891128"
             },
             "fee": {
               "type": "number",
@@ -3620,7 +3620,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1481.847469769120902911415323"
+              "value": "1481.847469769120902911415325410920"
             },
             "points": {
               "type": "number",
@@ -3638,7 +3638,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219807467513805938540322232"
+              "value": "0.1219807467513805938540322263850632"
             },
             "fee": {
               "type": "number",
@@ -3651,7 +3651,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1465.681565899863510819264677"
+              "value": "1465.681565899863510819264705552203"
             },
             "points": {
               "type": "number",
@@ -3669,7 +3669,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219478687825970483711604072"
+              "value": "0.1219478687825970483711604225076944"
             },
             "fee": {
               "type": "number",
@@ -3682,7 +3682,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1430.409890005738806923767053"
+              "value": "1430.409890005738806923767229688187"
             },
             "points": {
               "type": "number",
@@ -3700,7 +3700,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1207829702481517269343529080"
+              "value": "0.1207829702481517269343529237944616"
             },
             "fee": {
               "type": "number",
@@ -3713,7 +3713,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1432.307593257382315875048752"
+              "value": "1432.307593257382315875048929769800"
             },
             "points": {
               "type": "number",
@@ -3731,7 +3731,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1200230251545745307825755560"
+              "value": "0.1200230251545745307825755713607728"
             },
             "fee": {
               "type": "number",
@@ -3744,7 +3744,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1433.545598313194898464033879"
+              "value": "1433.545598313194898464034056911078"
             },
             "points": {
               "type": "number",
@@ -3762,7 +3762,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1160760438900092317382232856"
+              "value": "0.1160760438900092317382233014543120"
             },
             "fee": {
               "type": "number",
@@ -3775,7 +3775,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1439.975513845287239177067359"
+              "value": "1439.975513845287239177067537323045"
             },
             "points": {
               "type": "number",
@@ -3793,7 +3793,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1154298007315239099518616320"
+              "value": "0.1154298007315239099518616327317256"
             },
             "fee": {
               "type": "number",
@@ -3806,7 +3806,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1423.318353709275504544890163"
+              "value": "1423.318353709275504544890172906070"
             },
             "points": {
               "type": "number",
@@ -3824,7 +3824,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1137029731874587934446846032"
+              "value": "0.1137029731874587934446846162699240"
             },
             "fee": {
               "type": "number",
@@ -3837,7 +3837,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1454.515807764692215596584997"
+              "value": "1454.515807764692215596585144120557"
             },
             "points": {
               "type": "number",
@@ -3857,7 +3857,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1154298007315239099518616320"
+              "value": "0.1154298007315239099518616327317256"
             },
             "fee": {
               "type": "number",
@@ -3870,7 +3870,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1423.318353709275504544890163"
+              "value": "1423.318353709275504544890172906070"
             },
             "points": {
               "type": "number",
@@ -3888,7 +3888,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219478687825970483711604072"
+              "value": "0.1219478687825970483711604225076944"
             },
             "fee": {
               "type": "number",
@@ -3901,7 +3901,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1430.409890005738806923767053"
+              "value": "1430.409890005738806923767229688187"
             },
             "points": {
               "type": "number",
@@ -3919,7 +3919,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1207829702481517269343529080"
+              "value": "0.1207829702481517269343529237944616"
             },
             "fee": {
               "type": "number",
@@ -3932,7 +3932,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1432.307593257382315875048752"
+              "value": "1432.307593257382315875048929769800"
             },
             "points": {
               "type": "number",
@@ -3950,7 +3950,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1200230251545745307825755560"
+              "value": "0.1200230251545745307825755713607728"
             },
             "fee": {
               "type": "number",
@@ -3963,7 +3963,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1433.545598313194898464033879"
+              "value": "1433.545598313194898464034056911078"
             },
             "points": {
               "type": "number",
@@ -3981,7 +3981,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1160760438900092317382232856"
+              "value": "0.1160760438900092317382233014543120"
             },
             "fee": {
               "type": "number",
@@ -3994,7 +3994,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1439.975513845287239177067359"
+              "value": "1439.975513845287239177067537323045"
             },
             "points": {
               "type": "number",
@@ -4012,7 +4012,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1261025270361081947340171064"
+              "value": "0.1261025270361081947340170865041680"
             },
             "fee": {
               "type": "number",
@@ -4025,7 +4025,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1441.194429734569798816940817"
+              "value": "1441.194429734569798816940611550537"
             },
             "points": {
               "type": "number",
@@ -4043,7 +4043,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1238778822515121156167560792"
+              "value": "0.1238778822515121156167560595555856"
             },
             "fee": {
               "type": "number",
@@ -4056,7 +4056,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1444.863219004349967260443140"
+              "value": "1444.863219004349967260442933552328"
             },
             "points": {
               "type": "number",
@@ -4074,7 +4074,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1137029731874587934446846032"
+              "value": "0.1137029731874587934446846162699240"
             },
             "fee": {
               "type": "number",
@@ -4087,7 +4087,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1454.515807764692215596584997"
+              "value": "1454.515807764692215596585144120557"
             },
             "points": {
               "type": "number",
@@ -4105,7 +4105,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1219807467513805938540322232"
+              "value": "0.1219807467513805938540322263850632"
             },
             "fee": {
               "type": "number",
@@ -4118,7 +4118,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1465.681565899863510819264677"
+              "value": "1465.681565899863510819264705552203"
             },
             "points": {
               "type": "number",
@@ -4136,7 +4136,7 @@
             },
             "equity36moPct": {
               "type": "number",
-              "value": "0.1229130806675864888391782024"
+              "value": "0.1229130806675864888391782030891128"
             },
             "fee": {
               "type": "number",
@@ -4149,7 +4149,7 @@
             },
             "paymentAmt": {
               "type": "number",
-              "value": "1481.847469769120902911415323"
+              "value": "1481.847469769120902911415325410920"
             },
             "points": {
               "type": "number",
@@ -7299,7 +7299,7 @@
       "group": "0040-singlenestedcontext",
       "actual": {
         "type": "number",
-        "value": "2878.693549432766768088520375"
+        "value": "2878.693549432766768088520383236288"
       },
       "expected": {
         "type": "number",
@@ -7317,7 +7317,7 @@
       "group": "0040-singlenestedcontext",
       "actual": {
         "type": "number",
-        "value": "649.1175498364002934927000134"
+        "value": "649.1175498364002934927000148859422"
       },
       "expected": {
         "type": "number",
@@ -7335,7 +7335,7 @@
       "group": "0040-singlenestedcontext",
       "actual": {
         "type": "number",
-        "value": "2858.116099896591400871418886"
+        "value": "2858.116099896591400871418893289030"
       },
       "expected": {
         "type": "number",
@@ -7353,7 +7353,7 @@
       "group": "0041-multiple-nestedcontext",
       "actual": {
         "type": "number",
-        "value": "2778.693549432766768088520375"
+        "value": "2778.693549432766768088520383236288"
       },
       "expected": {
         "type": "number",
@@ -7371,7 +7371,7 @@
       "group": "0041-multiple-nestedcontext",
       "actual": {
         "type": "number",
-        "value": "549.1175498364002934927000134"
+        "value": "549.1175498364002934927000148859422"
       },
       "expected": {
         "type": "number",
@@ -7389,7 +7389,7 @@
       "group": "0041-multiple-nestedcontext",
       "actual": {
         "type": "number",
-        "value": "2758.116099896591400871418886"
+        "value": "2758.116099896591400871418893289030"
       },
       "expected": {
         "type": "number",
@@ -26431,7 +26431,7 @@
           },
           {
             "type": "atom",
-            "value": "list"
+            "value": "boolean"
           }
         ],
         "type": "tuple"
@@ -26515,7 +26515,7 @@
           },
           {
             "type": "atom",
-            "value": "list"
+            "value": "boolean"
           }
         ],
         "type": "tuple"
@@ -27919,6 +27919,312 @@
       "case_file": "TestCases/compliance-level-3/1156-range-function/1156-range-function-test-01.xml",
       "decision": "decision027",
       "expected_error": true
+    },
+    {
+      "error": null,
+      "id": "001",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": [
+        "abc"
+      ],
+      "expected": [
+        "abc"
+      ],
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "To Singleton List",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "002",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": "abc",
+      "expected": "abc",
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "From Singleton List",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "002_a",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": null,
+      "expected": null,
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "From Singleton List Error",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "003",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": {
+        "type": "date_time",
+        "value": "2000-01-02T00:00:00Z"
+      },
+      "expected": {
+        "type": "date_time",
+        "value": "2000-01-02T00:00:00Z"
+      },
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "From Date To Date and Time",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "004",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": [
+        {
+          "type": "number",
+          "value": "1"
+        }
+      ],
+      "expected": [
+        {
+          "type": "number",
+          "value": "1"
+        }
+      ],
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "To Singleton List BKM",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "005",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": {
+        "type": "number",
+        "value": "1"
+      },
+      "expected": {
+        "type": "number",
+        "value": "1"
+      },
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "From Singleton List BKM",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "006",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": {
+        "type": "date_time",
+        "value": "2000-01-02T00:00:00Z"
+      },
+      "expected": {
+        "type": "date_time",
+        "value": "2000-01-02T00:00:00Z"
+      },
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "From Date To Date and Time BKM",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "007",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": [
+        {
+          "type": "date",
+          "value": "2000-01-02"
+        }
+      ],
+      "expected": [
+        {
+          "type": "date",
+          "value": "2000-01-02"
+        }
+      ],
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "Body 1",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "008",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": {
+        "type": "date",
+        "value": "2000-01-02"
+      },
+      "expected": {
+        "type": "date",
+        "value": "2000-01-02"
+      },
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "Body 2",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "009",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": {
+        "type": "date_time",
+        "value": "2000-01-02T00:00:00Z"
+      },
+      "expected": {
+        "type": "date_time",
+        "value": "2000-01-02T00:00:00Z"
+      },
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "Body 3",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "010",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": [
+        [
+          {
+            "type": "number",
+            "value": "1"
+          }
+        ],
+        {
+          "type": "number",
+          "value": "2"
+        },
+        {
+          "type": "date_time",
+          "value": "2000-12-01T00:00:00Z"
+        }
+      ],
+      "expected": [
+        [
+          {
+            "type": "number",
+            "value": "1"
+          }
+        ],
+        {
+          "type": "number",
+          "value": "2"
+        },
+        {
+          "type": "date_time",
+          "value": "2000-12-01T00:00:00Z"
+        }
+      ],
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "Implicit Conversions CE",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "011",
+      "status": "passed",
+      "group": "1157-implicit-conversions",
+      "actual": [
+        [
+          {
+            "type": "number",
+            "value": "1"
+          }
+        ],
+        {
+          "type": "number",
+          "value": "2"
+        },
+        {
+          "type": "date_time",
+          "value": "2000-02-01T00:00:00Z"
+        }
+      ],
+      "expected": [
+        [
+          {
+            "type": "number",
+            "value": "1"
+          }
+        ],
+        {
+          "type": "number",
+          "value": "2"
+        },
+        {
+          "type": "date_time",
+          "value": "2000-02-01T00:00:00Z"
+        }
+      ],
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml",
+      "decision": "Implicit Conversions FUNCT",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "001",
+      "status": "passed",
+      "group": "1160-multiple-imports",
+      "actual": "Peter",
+      "expected": "Peter",
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-01.xml",
+      "decision": "DecisionB",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "001",
+      "status": "passed",
+      "group": "1160-multiple-imports",
+      "actual": "Peter",
+      "expected": "Peter",
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-03.xml",
+      "decision": "DecisionB",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "001",
+      "status": "passed",
+      "group": "1160-multiple-imports",
+      "actual": "PeterPeter",
+      "expected": "PeterPeter",
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-02.xml",
+      "decision": "DecisionC",
+      "expected_error": false
+    },
+    {
+      "error": null,
+      "id": "001",
+      "status": "passed",
+      "group": "1160-multiple-imports",
+      "actual": "PeterPeter",
+      "expected": "PeterPeter",
+      "compliance_level": "compliance-level-3",
+      "case_file": "TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-04.xml",
+      "decision": "DecisionC",
+      "expected_error": false
     },
     {
       "error": null,

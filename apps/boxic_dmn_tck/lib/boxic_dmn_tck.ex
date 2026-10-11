@@ -149,6 +149,8 @@ defmodule Boxic.DMN.TCK do
     1154-boxed-every
     1155-list-replace-function
     1156-range-function
+    1157-implicit-conversions
+    1160-multiple-imports
     1161-boxed-list-expression
     0108-first-hitpolicy
     0109-ruleOrder-hitpolicy

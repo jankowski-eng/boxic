@@ -78,20 +78,25 @@ defmodule Boxic.DMN.TCK.Runner do
 
   defp evaluate(test_case) do
     with {:ok, model} <- Boxic.DMN.load(test_case.model_path) do
-      if test_case.metadata[:case_type] == "decisionService" do
-        case Boxic.DMN.evaluate_service(
-               model,
-               test_case.metadata[:invocable_name],
-               test_case.inputs
-             ) do
-          {:ok, value} when is_map(value) ->
-            {:ok, Map.get(value, test_case.decision_name, value)}
+      case test_case.metadata[:case_type] do
+        "decisionService" ->
+          case Boxic.DMN.evaluate_service(
+                 model,
+                 test_case.metadata[:invocable_name],
+                 test_case.inputs
+               ) do
+            {:ok, value} when is_map(value) ->
+              {:ok, Map.get(value, test_case.decision_name, value)}
 
-          result ->
-            result
-        end
-      else
-        Boxic.DMN.evaluate(model, test_case.decision_name, test_case.inputs)
+            result ->
+              result
+          end
+
+        "bkm" ->
+          Boxic.DMN.evaluate_bkm(model, test_case.metadata[:invocable_name], test_case.inputs)
+
+        _decision ->
+          Boxic.DMN.evaluate(model, test_case.decision_name, test_case.inputs)
       end
     end
   end
