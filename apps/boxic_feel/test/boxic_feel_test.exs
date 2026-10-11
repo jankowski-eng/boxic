@@ -340,6 +340,24 @@ defmodule Boxic.FEELTest do
     end
   end
 
+  test "max accepts a single value as well as a list or several values" do
+    for expression <- ["max(5)", "max([5])", "max(5, 3)", "max(3, 5, 4)"] do
+      assert {:ok, five} = Boxic.FEEL.evaluate(expression)
+      assert Decimal.equal?(five, Decimal.new(5)), expression
+    end
+  end
+
+  test "sum and min accept their variadic forms" do
+    assert {:ok, six} = Boxic.FEEL.evaluate("sum(1, 2, 3)")
+    assert Decimal.equal?(six, Decimal.new(6))
+    assert {:ok, one} = Boxic.FEEL.evaluate("sum(1)")
+    assert Decimal.equal?(one, Decimal.new(1))
+    assert {:ok, two} = Boxic.FEEL.evaluate("min(3, 2, 5)")
+    assert Decimal.equal?(two, Decimal.new(2))
+    assert {:ok, four} = Boxic.FEEL.evaluate("min([4, 9])")
+    assert Decimal.equal?(four, Decimal.new(4))
+  end
+
   test "duration arithmetic preserves kinds and temporal boundary semantics" do
     assert {:ok, %Duration{kind: :day_time} = scaled} =
              Boxic.FEEL.evaluate(~S|duration("PT1H") * 2.5|)

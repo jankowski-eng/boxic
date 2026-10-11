@@ -20,6 +20,11 @@ Fixes:
   `false`. Bounds are only compared when both are numbers, strings, booleans, or the
   same kind of temporal value, and the two bound tests combine with three-valued `and`.
 
+Fixes, so that results match the specification:
+
+- Support the variadic forms `sum(n1, ..., nN)` and `min(c1, ..., cN)`, and accept a
+  single non-list argument for `max(c1, ..., cN)`, as the specification defines.
+
 Security:
 
 - Require `decimal` 3.1.2 or later, which fixes unbounded allocation in
