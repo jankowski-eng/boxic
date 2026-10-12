@@ -1,7 +1,8 @@
 defmodule Boxic.FEEL.Semantics do
   @moduledoc false
-  # The equality of FEEL values (DMN 1.5 Table 52 and Table 53), which `=`, `!=`, `in`, the
-  # unary tests, and the built-in functions that compare values all share.
+  # The equality (DMN 1.5 Table 52 and Table 53) and the order (Table 54) of FEEL values, which
+  # `=`, `!=`, `<`, `in`, the unary tests, and the built-in functions that compare values all
+  # share. There is no other place that decides whether two values are equal or which is less.
 
   alias Boxic.FEEL.{Duration, Function, Range}
   alias Boxic.FEEL.DateTime, as: FeelDateTime
@@ -111,6 +112,102 @@ defmodule Boxic.FEEL.Semantics do
   @doc "True when the values are equal; false when they are not, or cannot be compared."
   @spec equal?(term(), term()) :: boolean()
   def equal?(left, right), do: equal(left, right) == true
+
+  @typedoc "How two values are ordered; `:not_comparable` when they have no order."
+  @type ordering :: :lt | :eq | :gt | :not_comparable
+
+  @doc """
+  Orders two values as `<` does (Table 54): `:lt`, `:eq`, `:gt`, or `:not_comparable`.
+
+  Numbers are ordered by value, strings by code point, dates by year, month, and day, times
+  and date-times by instant, and durations by length. Booleans are not ordered by the
+  specification; they keep the order `false < true` that `<` and `in` have always given them.
+  Two durations are ordered only when they are of the same kind, and times and date-times only
+  when they have a common timeline: both have an offset, or one has none, in which case it
+  takes the offset of the other (Table 54), or both are in the same named zone. Values of
+  different kinds, such as a number and a string, a date and a date-time, a list, a context,
+  a range, and null have no order.
+  """
+  @spec compare(term(), term()) :: ordering()
+  def compare(left, right)
+      when (is_integer(left) or is_struct(left, Decimal)) and
+             (is_integer(right) or is_struct(right, Decimal)) do
+    left = to_decimal(left)
+    right = to_decimal(right)
+
+    if Decimal.nan?(left) or Decimal.nan?(right),
+      do: :not_comparable,
+      else: Decimal.compare(left, right)
+  end
+
+  def compare(left, right) when is_binary(left) and is_binary(right) do
+    cond do
+      left == right -> :eq
+      left < right -> :lt
+      true -> :gt
+    end
+  end
+
+  def compare(false, true), do: :lt
+  def compare(true, false), do: :gt
+  def compare(left, right) when is_boolean(left) and is_boolean(right), do: :eq
+
+  def compare(%Date{} = left, %Date{} = right), do: Date.compare(left, right)
+  def compare(%Time{} = left, %Time{} = right), do: Time.compare(left, right)
+  def compare(%DateTime{} = left, %DateTime{} = right), do: DateTime.compare(left, right)
+
+  def compare(%FeelTime{} = left, %FeelTime{} = right) do
+    {left, right} = adopt_offset(left, right)
+    ordering(FeelTime.compare(left, right))
+  end
+
+  def compare(%FeelDateTime{} = left, %FeelDateTime{} = right) do
+    {left_time, right_time} = adopt_offset(left.time, right.time)
+    ordering(FeelDateTime.compare(%{left | time: left_time}, %{right | time: right_time}))
+  end
+
+  def compare(%Duration{} = left, %Duration{} = right),
+    do: ordering(Duration.compare(left, right))
+
+  def compare(_left, _right), do: :not_comparable
+
+  @doc """
+  The kind of an ordered value: `:number`, `:string`, `:boolean`, `:date`, `:time`,
+  `:date_time`, or `:duration`; `nil` for a value that has no order, such as a list.
+
+  Two values of one kind that `compare/2` calls `:not_comparable` cannot be ordered, as two
+  durations of different kinds cannot. Two values of different kinds are not meant to be
+  compared at all.
+  """
+  @spec kind(term()) ::
+          :number | :string | :boolean | :date | :time | :date_time | :duration | nil
+  def kind(value) when is_integer(value) or is_struct(value, Decimal), do: :number
+  def kind(value) when is_binary(value), do: :string
+  def kind(value) when is_boolean(value), do: :boolean
+  def kind(%Date{}), do: :date
+  def kind(%Time{}), do: :time
+  def kind(%FeelTime{}), do: :time
+  def kind(%DateTime{}), do: :date_time
+  def kind(%FeelDateTime{}), do: :date_time
+  def kind(%Duration{}), do: :duration
+  def kind(_value), do: nil
+
+  # Table 54: if one input has a null time offset, it uses the offset of the other input. A
+  # time that is in a named zone has no offset of its own, but the zone of the other value
+  # tells which one applies.
+  defp adopt_offset(%{zone: :floating} = left, %{zone: zone} = right) when zone != :floating,
+    do: {%{left | zone: zone}, right}
+
+  defp adopt_offset(%{zone: zone} = left, %{zone: :floating} = right) when zone != :floating,
+    do: {left, %{right | zone: zone}}
+
+  defp adopt_offset(left, right), do: {left, right}
+
+  defp ordering(:unordered), do: :not_comparable
+  defp ordering(ordering), do: ordering
+
+  defp to_decimal(%Decimal{} = value), do: value
+  defp to_decimal(value), do: Decimal.new(value)
 
   # The items of a list or the entries of a context are equal when all of them are.
   defp equality_all(results) do
