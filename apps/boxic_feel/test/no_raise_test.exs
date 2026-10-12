@@ -364,6 +364,83 @@ defmodule Boxic.FEEL.NoRaiseTest do
     end
   end
 
+  describe "operands compared by the built-in functions" do
+    # The built-ins that decide whether two values are equal or which is less used to reach
+    # their blanket `rescue` for a date, a duration, a range, or a function: the failure was
+    # then reported as "built-in invocation failed". Every pair of operands is compared by
+    # all of them and must give a value or a specific error, not that one.
+    @comparing_functions [
+      "list contains",
+      "index of",
+      "before",
+      "after",
+      "meets",
+      "met by",
+      "overlaps",
+      "overlaps before",
+      "overlaps after",
+      "finishes",
+      "finished by",
+      "includes",
+      "during",
+      "starts",
+      "started by",
+      "coincides"
+    ]
+
+    test "every pair of operands, for the equality and the range functions" do
+      expressions =
+        for left <- @operands, right <- @operands, function <- @comparing_functions do
+          "#{function}(#{left}, #{right})"
+        end
+
+      assert_no_failures(expressions, &Boxic.FEEL.evaluate/1)
+      assert rescued(expressions) == []
+    end
+
+    test "every pair of operands, for the list functions that compare items" do
+      expressions =
+        for left <- @operands,
+            right <- @operands,
+            template <- [
+              "distinct values([%left, %right])",
+              "union([%left], [%right])",
+              "union([%left, %right], [%right])",
+              "index of([%left, %right], %left)",
+              "list contains([%left, %right], %right)",
+              "min([%left, %right])",
+              "max([%left, %right])",
+              "min(%left, %right)",
+              "max(%left, %right)"
+            ] do
+          template |> String.replace("%left", left) |> String.replace("%right", right)
+        end
+
+      assert_no_failures(expressions, &Boxic.FEEL.evaluate/1)
+      assert rescued(expressions) == []
+    end
+
+    test "every pair of operands, for the unary tests that compare" do
+      pairs =
+        for test <- ["= %", "!= %", "< %", "<= %", "> %", ">= %", "not(= %)", "not(< %)"],
+            operand <- @operands,
+            value <- host_values() do
+          {String.replace(test, "%", operand), value}
+        end
+
+      assert_no_failures(pairs, fn {test, value} ->
+        Boxic.FEEL.evaluate_unary_test(test, value)
+      end)
+    end
+
+    defp rescued(expressions) do
+      for expression <- expressions,
+          {:error, %Error{message: "built-in invocation failed"}} <-
+            [Boxic.FEEL.evaluate(expression)],
+          do: expression
+    end
+  end
+
   describe "context values supplied by the host" do
     test "used with arithmetic, comparison, and navigation" do
       expressions = [
