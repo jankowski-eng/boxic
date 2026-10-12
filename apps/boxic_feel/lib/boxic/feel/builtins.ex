@@ -1,7 +1,7 @@
 defmodule Boxic.FEEL.Builtins do
   @moduledoc false
 
-  alias Boxic.FEEL.Duration
+  alias Boxic.FEEL.{Duration, Semantics}
   alias Boxic.FEEL.DateTime, as: FeelDateTime
   alias Boxic.FEEL.Time, as: FeelTime
 
@@ -303,7 +303,7 @@ defmodule Boxic.FEEL.Builtins do
         boolean_aggregate(values, :any)
 
       {"list_contains", [list, element]} when is_list(list) ->
-        {:ok, Enum.any?(list, &feel_equal?(&1, element))}
+        {:ok, Enum.any?(list, &Semantics.equal?(&1, element))}
 
       {"sum", [list]} when is_list(list) ->
         sum_list(list)
@@ -356,7 +356,7 @@ defmodule Boxic.FEEL.Builtins do
         indexes =
           list
           |> Enum.with_index(1)
-          |> Enum.filter(fn {value, _index} -> feel_equal?(value, match) end)
+          |> Enum.filter(fn {value, _index} -> Semantics.equal?(value, match) end)
           |> Enum.map(fn {_value, index} -> Decimal.new(index) end)
 
         {:ok, indexes}
@@ -1010,20 +1010,26 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp min_list([]), do: {:ok, nil}
-
-  defp min_list(values) do
-    case Enum.all?(values, &match?(%Decimal{}, &1)) do
-      true -> {:ok, Enum.reduce(values, fn value, current -> decimal_min(value, current) end)}
-      false -> {:error, err(:type_error, "min expects a list of numbers")}
-    end
-  end
+  defp min_list(values), do: extreme(values, :lt)
 
   defp max_list([]), do: {:ok, nil}
+  defp max_list(values), do: extreme(values, :gt)
 
-  defp max_list(values) do
-    case Enum.all?(values, &match?(%Decimal{}, &1)) do
-      true -> {:ok, Enum.reduce(values, fn value, current -> decimal_max(value, current) end)}
-      false -> {:error, err(:type_error, "max expects a list of numbers")}
+  # `min` and `max` take comparable items (Table 75): numbers, strings, dates, times,
+  # date-times, and durations, ordered as in Table 54. Items that cannot be compared with each
+  # other, such as a number and a string, or two durations of different kinds, give null, and
+  # so does an item that has no order at all, such as a list or a context.
+  defp extreme([first | rest], wanted) do
+    if Semantics.kind(first) == nil do
+      {:ok, nil}
+    else
+      Enum.reduce_while(rest, {:ok, first}, fn value, {:ok, current} ->
+        case Semantics.compare(value, current) do
+          :not_comparable -> {:halt, {:ok, nil}}
+          ^wanted -> {:cont, {:ok, value}}
+          _ordering -> {:cont, {:ok, current}}
+        end
+      end)
     end
   end
 
@@ -1039,14 +1045,6 @@ defmodule Boxic.FEEL.Builtins do
     else
       {:error, err(:type_error, "mean expects numbers")}
     end
-  end
-
-  defp decimal_min(value, current) do
-    if Decimal.compare(value, current) == :lt, do: value, else: current
-  end
-
-  defp decimal_max(value, current) do
-    if Decimal.compare(value, current) == :gt, do: value, else: current
   end
 
   defp insert_before(list, position, value) do
@@ -1111,7 +1109,7 @@ defmodule Boxic.FEEL.Builtins do
 
   defp distinct(values) do
     Enum.reduce(values, [], fn value, result ->
-      if Enum.any?(result, &feel_equal?(&1, value)), do: result, else: result ++ [value]
+      if Enum.any?(result, &Semantics.equal?(&1, value)), do: result, else: result ++ [value]
     end)
   end
 
@@ -1121,26 +1119,6 @@ defmodule Boxic.FEEL.Builtins do
       value -> [value]
     end)
   end
-
-  defp feel_equal?(%Decimal{} = left, %Decimal{} = right), do: Decimal.equal?(left, right)
-
-  defp feel_equal?(%FeelTime{} = left, %FeelTime{} = right),
-    do: FeelTime.compare(left, right) == :eq
-
-  defp feel_equal?(%FeelDateTime{} = left, %FeelDateTime{} = right),
-    do: FeelDateTime.compare(left, right) == :eq
-
-  defp feel_equal?(left, right) when is_list(left) and is_list(right) do
-    length(left) == length(right) and
-      Enum.zip(left, right) |> Enum.all?(fn {a, b} -> feel_equal?(a, b) end)
-  end
-
-  defp feel_equal?(left, right) when is_map(left) and is_map(right) do
-    Map.keys(left) |> MapSet.new() == Map.keys(right) |> MapSet.new() and
-      Enum.all?(left, fn {key, value} -> feel_equal?(value, Map.fetch!(right, key)) end)
-  end
-
-  defp feel_equal?(left, right), do: left == right
 
   defp string_join(values, delimiter) do
     values = Enum.reject(values, &is_nil/1)
@@ -1226,14 +1204,13 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp interval_relation("before", left, right), do: {:ok, before?(left, right)}
-  defp interval_relation("after", left, right), do: {:ok, before?(right, left)}
+  defp interval_relation("after", left, right), do: {:ok, after?(left, right)}
 
   defp interval_relation("meets", %Boxic.FEEL.Range{} = left, %Boxic.FEEL.Range{} = right),
-    do:
-      {:ok,
-       endpoint_equal?(left.end, right.start) and left.end_inclusive and right.start_inclusive}
+    do: {:ok, meets?(left, right)}
 
-  defp interval_relation("met_by", left, right), do: interval_relation("meets", right, left)
+  defp interval_relation("met_by", %Boxic.FEEL.Range{} = left, %Boxic.FEEL.Range{} = right),
+    do: {:ok, met_by?(left, right)}
 
   defp interval_relation(
          "overlaps_before",
@@ -1242,119 +1219,412 @@ defmodule Boxic.FEEL.Builtins do
        ),
        do: {:ok, overlaps_before?(left, right)}
 
-  defp interval_relation("overlaps_after", left, right),
-    do: interval_relation("overlaps_before", right, left)
+  defp interval_relation(
+         "overlaps_after",
+         %Boxic.FEEL.Range{} = left,
+         %Boxic.FEEL.Range{} = right
+       ),
+       do: {:ok, overlaps_after?(left, right)}
 
   defp interval_relation("includes", %Boxic.FEEL.Range{} = range, value),
     do: {:ok, includes?(range, value)}
 
   defp interval_relation("during", value, %Boxic.FEEL.Range{} = range),
-    do: {:ok, includes?(range, value)}
+    do: {:ok, during?(value, range)}
 
   defp interval_relation("starts", value, %Boxic.FEEL.Range{} = range),
     do: {:ok, starts?(value, range)}
 
-  defp interval_relation("started_by", range, value),
-    do: interval_relation("starts", value, range)
+  defp interval_relation("started_by", %Boxic.FEEL.Range{} = range, value),
+    do: {:ok, started_by?(range, value)}
 
   defp interval_relation("finishes", value, %Boxic.FEEL.Range{} = range),
     do: {:ok, finishes?(value, range)}
 
-  defp interval_relation("finished_by", range, value),
-    do: interval_relation("finishes", value, range)
+  defp interval_relation("finished_by", %Boxic.FEEL.Range{} = range, value),
+    do: {:ok, finished_by?(range, value)}
 
   defp interval_relation("coincides", left, right), do: {:ok, coincides?(left, right)}
 
   defp interval_relation("overlaps", %Boxic.FEEL.Range{} = left, %Boxic.FEEL.Range{} = right),
-    do: {:ok, intervals_intersect?(left, right) and not coincides?(left, right)}
+    do: {:ok, overlaps?(left, right)}
 
   defp interval_relation(_relation, _left, _right),
     do: {:error, err(:type_error, "invalid interval relation operands")}
 
-  defp before?(%Boxic.FEEL.Range{} = left, %Boxic.FEEL.Range{} = right),
-    do: endpoint_before?(left.end, left.end_inclusive, right.start, right.start_inclusive)
+  # The relations below are the formulas of DMN 1.5 Table 78 ("Semantics of range functions"),
+  # written the way the table writes them. `point`, `point1`, and `point2` are values;
+  # `range`, `range1`, and `range2` are ranges, and "range.end included" is the flag
+  # `end_inclusive` of the range.
+  #
+  # The formulas are logic over `<`, `=`, and `>` of endpoints, evaluated as FEEL evaluates `and`,
+  # `or`, and `not`: with null as the third value. Endpoints that cannot be compared with each
+  # other, such as a number and a string, or a null endpoint, make the comparison null, and the
+  # relation is null unless a `false` or a `true` elsewhere in the formula decides it.
 
-  defp before?(%Boxic.FEEL.Range{} = left, right),
-    do: endpoint_before?(left.end, left.end_inclusive, right, true)
+  # before(point1, point2) ...
+  defp before?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (d) range1.end < range2.start or
+    #     ((not(range1.end included) or not(range2.start included)) and
+    #      range1.end = range2.start)
+    any3([
+      lt(range1.end, range2.start),
+      all3([
+        any3([not3(range1.end_inclusive), not3(range2.start_inclusive)]),
+        eq(range1.end, range2.start)
+      ])
+    ])
+  end
 
-  defp before?(left, %Boxic.FEEL.Range{} = right),
-    do: endpoint_before?(left, true, right.start, right.start_inclusive)
+  defp before?(%Boxic.FEEL.Range{} = range, point) do
+    # (c) range.end < point or (range.end = point and not(range.end included))
+    any3([lt(range.end, point), all3([eq(range.end, point), not3(range.end_inclusive)])])
+  end
 
-  defp before?(left, right), do: endpoint_compare(left, right) == :lt
+  defp before?(point, %Boxic.FEEL.Range{} = range) do
+    # (b) point < range.start or (point = range.start and not(range.start included))
+    any3([lt(point, range.start), all3([eq(point, range.start), not3(range.start_inclusive)])])
+  end
 
-  defp endpoint_before?(left, left_inclusive, right, right_inclusive) do
-    case endpoint_compare(left, right) do
-      :lt -> true
-      :eq -> not (left_inclusive and right_inclusive)
-      :gt -> false
+  # (a) point1 < point2
+  defp before?(point1, point2), do: lt(point1, point2)
+
+  # after(point1, point2) ...
+  defp after?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (d) range1.start > range2.end or
+    #     ((not(range1.start included) or not(range2.end included)) and
+    #      range1.start = range2.end)
+    any3([
+      gt(range1.start, range2.end),
+      all3([
+        any3([not3(range1.start_inclusive), not3(range2.end_inclusive)]),
+        eq(range1.start, range2.end)
+      ])
+    ])
+  end
+
+  defp after?(%Boxic.FEEL.Range{} = range, point) do
+    # (c) range.start > point or (range.start = point and not(range.start included))
+    any3([gt(range.start, point), all3([eq(range.start, point), not3(range.start_inclusive)])])
+  end
+
+  defp after?(point, %Boxic.FEEL.Range{} = range) do
+    # (b) point > range.end or (point = range.end and not(range.end included))
+    any3([gt(point, range.end), all3([eq(point, range.end), not3(range.end_inclusive)])])
+  end
+
+  # (a) point1 > point2
+  defp after?(point1, point2), do: gt(point1, point2)
+
+  # (a) meets(range1, range2): range1.end included and range2.start included and
+  #     range1.end = range2.start
+  defp meets?(range1, range2) do
+    all3([range1.end_inclusive, range2.start_inclusive, eq(range1.end, range2.start)])
+  end
+
+  # (a) met by(range1, range2): range1.start included and range2.end included and
+  #     range1.start = range2.end
+  defp met_by?(range1, range2) do
+    all3([range1.start_inclusive, range2.end_inclusive, eq(range1.start, range2.end)])
+  end
+
+  # (a) overlaps(range1, range2):
+  #     (range1.end > range2.start or
+  #      (range1.end = range2.start and range1.end included and range2.start included)) and
+  #     (range1.start < range2.end or
+  #      (range1.start = range2.end and range1.start included and range2.end included))
+  defp overlaps?(range1, range2) do
+    all3([
+      any3([
+        gt(range1.end, range2.start),
+        all3([eq(range1.end, range2.start), range1.end_inclusive, range2.start_inclusive])
+      ]),
+      any3([
+        lt(range1.start, range2.end),
+        all3([eq(range1.start, range2.end), range1.start_inclusive, range2.end_inclusive])
+      ])
+    ])
+  end
+
+  # (a) overlaps before(range1, range2):
+  #     (range1.start < range2.start or
+  #      (range1.start = range2.start and range1.start included and
+  #       not(range2.start included))) and
+  #     (range1.end > range2.start or
+  #      (range1.end = range2.start and range1.end included and range2.start included)) and
+  #     (range1.end < range2.end or
+  #      (range1.end = range2.end and (not(range1.end included) or range2.end included)))
+  defp overlaps_before?(range1, range2) do
+    all3([
+      any3([
+        lt(range1.start, range2.start),
+        all3([
+          eq(range1.start, range2.start),
+          range1.start_inclusive,
+          not3(range2.start_inclusive)
+        ])
+      ]),
+      any3([
+        gt(range1.end, range2.start),
+        all3([eq(range1.end, range2.start), range1.end_inclusive, range2.start_inclusive])
+      ]),
+      any3([
+        lt(range1.end, range2.end),
+        all3([
+          eq(range1.end, range2.end),
+          any3([not3(range1.end_inclusive), range2.end_inclusive])
+        ])
+      ])
+    ])
+  end
+
+  # (a) overlaps after(range1, range2):
+  #     (range2.start < range1.start or
+  #      (range2.start = range1.start and range2.start included and
+  #       not(range1.start included))) and
+  #     (range2.end > range1.start or
+  #      (range2.end = range1.start and range2.end included and range1.start included)) and
+  #     (range2.end < range1.end or
+  #      (range2.end = range1.end and (not(range2.end included) or range1.end included)))
+  defp overlaps_after?(range1, range2) do
+    all3([
+      any3([
+        lt(range2.start, range1.start),
+        all3([
+          eq(range2.start, range1.start),
+          range2.start_inclusive,
+          not3(range1.start_inclusive)
+        ])
+      ]),
+      any3([
+        gt(range2.end, range1.start),
+        all3([eq(range2.end, range1.start), range2.end_inclusive, range1.start_inclusive])
+      ]),
+      any3([
+        lt(range2.end, range1.end),
+        all3([
+          eq(range2.end, range1.end),
+          any3([not3(range2.end_inclusive), range1.end_inclusive])
+        ])
+      ])
+    ])
+  end
+
+  # finishes(point, range) ...
+  defp finishes?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (b) range1.end included = range2.end included and range1.end = range2.end and
+    #     (range1.start > range2.start or
+    #      (range1.start = range2.start and
+    #       (not(range1.start included) or range2.start included)))
+    all3([
+      range1.end_inclusive == range2.end_inclusive,
+      eq(range1.end, range2.end),
+      any3([
+        gt(range1.start, range2.start),
+        all3([
+          eq(range1.start, range2.start),
+          any3([not3(range1.start_inclusive), range2.start_inclusive])
+        ])
+      ])
+    ])
+  end
+
+  # (a) range.end included and range.end = point
+  defp finishes?(point, range), do: all3([range.end_inclusive, eq(range.end, point)])
+
+  # finished by(range, point) ...
+  defp finished_by?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (b) range1.end included = range2.end included and range1.end = range2.end and
+    #     (range1.start < range2.start or
+    #      (range1.start = range2.start and
+    #       (range1.start included or not(range2.start included))))
+    all3([
+      range1.end_inclusive == range2.end_inclusive,
+      eq(range1.end, range2.end),
+      any3([
+        lt(range1.start, range2.start),
+        all3([
+          eq(range1.start, range2.start),
+          any3([range1.start_inclusive, not3(range2.start_inclusive)])
+        ])
+      ])
+    ])
+  end
+
+  # (a) range.end included and range.end = point
+  defp finished_by?(range, point), do: all3([range.end_inclusive, eq(range.end, point)])
+
+  # includes(range, point) ...
+  defp includes?(range1, %Boxic.FEEL.Range{} = range2) do
+    # (b) (range1.start < range2.start or
+    #      (range1.start = range2.start and
+    #       (range1.start included or not(range2.start included)))) and
+    #     (range1.end > range2.end or
+    #      (range1.end = range2.end and (range1.end included or not(range2.end included))))
+    all3([
+      any3([
+        lt(range1.start, range2.start),
+        all3([
+          eq(range1.start, range2.start),
+          any3([range1.start_inclusive, not3(range2.start_inclusive)])
+        ])
+      ]),
+      any3([
+        gt(range1.end, range2.end),
+        all3([
+          eq(range1.end, range2.end),
+          any3([range1.end_inclusive, not3(range2.end_inclusive)])
+        ])
+      ])
+    ])
+  end
+
+  defp includes?(range, point), do: point_in_range?(range, point)
+
+  # during(point, range) ...
+  defp during?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (b) (range2.start < range1.start or
+    #      (range2.start = range1.start and
+    #       (range2.start included or not(range1.start included)))) and
+    #     (range2.end > range1.end or
+    #      (range2.end = range1.end and (range2.end included or not(range1.end included))))
+    all3([
+      any3([
+        lt(range2.start, range1.start),
+        all3([
+          eq(range2.start, range1.start),
+          any3([range2.start_inclusive, not3(range1.start_inclusive)])
+        ])
+      ]),
+      any3([
+        gt(range2.end, range1.end),
+        all3([
+          eq(range2.end, range1.end),
+          any3([range2.end_inclusive, not3(range1.end_inclusive)])
+        ])
+      ])
+    ])
+  end
+
+  defp during?(point, range), do: point_in_range?(range, point)
+
+  # (a) of includes(range, point) and of during(point, range):
+  #     (range.start < point and range.end > point) or
+  #     (range.start = point and range.start included) or
+  #     (range.end = point and range.end included)
+  defp point_in_range?(range, point) do
+    any3([
+      all3([lt(range.start, point), gt(range.end, point)]),
+      all3([eq(range.start, point), range.start_inclusive]),
+      all3([eq(range.end, point), range.end_inclusive])
+    ])
+  end
+
+  # starts(point, range) ...
+  defp starts?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (b) range1.start = range2.start and range1.start included = range2.start included and
+    #     (range1.end < range2.end or
+    #      (range1.end = range2.end and (not(range1.end included) or range2.end included)))
+    all3([
+      eq(range1.start, range2.start),
+      range1.start_inclusive == range2.start_inclusive,
+      any3([
+        lt(range1.end, range2.end),
+        all3([
+          eq(range1.end, range2.end),
+          any3([not3(range1.end_inclusive), range2.end_inclusive])
+        ])
+      ])
+    ])
+  end
+
+  # (a) range.start = point and range.start included
+  defp starts?(point, range), do: all3([eq(range.start, point), range.start_inclusive])
+
+  # started by(range, point) ...
+  defp started_by?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (b) range1.start = range2.start and range1.start included = range2.start included and
+    #     (range2.end < range1.end or
+    #      (range2.end = range1.end and (not(range2.end included) or range1.end included)))
+    all3([
+      eq(range1.start, range2.start),
+      range1.start_inclusive == range2.start_inclusive,
+      any3([
+        lt(range2.end, range1.end),
+        all3([
+          eq(range2.end, range1.end),
+          any3([not3(range2.end_inclusive), range1.end_inclusive])
+        ])
+      ])
+    ])
+  end
+
+  # (a) range.start = point and range.start included
+  defp started_by?(range, point), do: all3([eq(range.start, point), range.start_inclusive])
+
+  # coincides(point1, point2) ...
+  defp coincides?(%Boxic.FEEL.Range{} = range1, %Boxic.FEEL.Range{} = range2) do
+    # (b) range1.start = range2.start and range1.start included = range2.start included and
+    #     range1.end = range2.end and range1.end included = range2.end included
+    all3([
+      eq(range1.start, range2.start),
+      range1.start_inclusive == range2.start_inclusive,
+      eq(range1.end, range2.end),
+      range1.end_inclusive == range2.end_inclusive
+    ])
+  end
+
+  # (a) point1 = point2. This is the equality of `=`.
+  defp coincides?(point1, point2), do: Semantics.equal(point1, point2)
+
+  # `<`, `=`, and `>` of two endpoints, or null when they have no order.
+  defp lt(left, right), do: ordered?(left, right, :lt)
+  defp eq(left, right), do: ordered?(left, right, :eq)
+  defp gt(left, right), do: ordered?(left, right, :gt)
+
+  defp ordered?(left, right, expected) do
+    case Semantics.compare(left, right) do
+      :not_comparable -> nil
+      ^expected -> true
+      _other -> false
     end
   end
 
-  defp overlaps_before?(left, right) do
-    starts_before =
-      endpoint_compare(left.start, right.start) == :lt or
-        (endpoint_equal?(left.start, right.start) and left.start_inclusive and
-           not right.start_inclusive)
-
-    ends_no_later = endpoint_compare(left.end, right.end) != :gt
-    starts_before and ends_no_later and intervals_intersect?(left, right)
+  # FEEL's `and`, `or`, and `not` (Tables 50 and 51), over a list of operands.
+  defp all3(operands) do
+    cond do
+      Enum.any?(operands, &(&1 == false)) -> false
+      Enum.any?(operands, &is_nil/1) -> nil
+      true -> true
+    end
   end
 
-  defp intervals_intersect?(left, right) do
-    not before?(left, right) and not before?(right, left)
+  defp any3(operands) do
+    cond do
+      Enum.any?(operands, &(&1 == true)) -> true
+      Enum.any?(operands, &is_nil/1) -> nil
+      true -> false
+    end
   end
 
-  defp includes?(range, %Boxic.FEEL.Range{} = inner) do
-    lower_ok =
-      endpoint_compare(range.start, inner.start) == :lt or
-        (endpoint_equal?(range.start, inner.start) and
-           (range.start_inclusive or not inner.start_inclusive))
-
-    upper_ok =
-      endpoint_compare(range.end, inner.end) == :gt or
-        (endpoint_equal?(range.end, inner.end) and
-           (range.end_inclusive or not inner.end_inclusive))
-
-    lower_ok and upper_ok
-  end
-
-  defp includes?(range, value) do
-    lower = endpoint_compare(value, range.start)
-    upper = endpoint_compare(value, range.end)
-    lower_ok = lower == :gt or (lower == :eq and range.start_inclusive)
-    upper_ok = upper == :lt or (upper == :eq and range.end_inclusive)
-    lower_ok and upper_ok
-  end
-
-  defp starts?(%Boxic.FEEL.Range{} = value, range),
-    do:
-      endpoint_equal?(value.start, range.start) and value.start_inclusive == range.start_inclusive
-
-  defp starts?(value, range), do: endpoint_equal?(value, range.start) and range.start_inclusive
-
-  defp finishes?(%Boxic.FEEL.Range{} = value, range),
-    do: endpoint_equal?(value.end, range.end) and value.end_inclusive == range.end_inclusive
-
-  defp finishes?(value, range), do: endpoint_equal?(value, range.end) and range.end_inclusive
-
-  defp coincides?(%Boxic.FEEL.Range{} = left, %Boxic.FEEL.Range{} = right) do
-    endpoint_equal?(left.start, right.start) and endpoint_equal?(left.end, right.end) and
-      left.start_inclusive == right.start_inclusive and left.end_inclusive == right.end_inclusive
-  end
-
-  defp coincides?(left, right), do: feel_equal?(left, right)
-
-  defp endpoint_equal?(left, right), do: endpoint_compare(left, right) == :eq
-  defp endpoint_compare(%Decimal{} = left, %Decimal{} = right), do: Decimal.compare(left, right)
-  defp endpoint_compare(%Date{} = left, %Date{} = right), do: Date.compare(left, right)
-  defp endpoint_compare(left, right) when left < right, do: :lt
-  defp endpoint_compare(left, right) when left > right, do: :gt
-  defp endpoint_compare(_left, _right), do: :eq
+  defp not3(true), do: false
+  defp not3(false), do: true
+  defp not3(_other), do: nil
 
   defp stringify_value(value) when is_binary(value), do: "\"#{escape_string(value)}\""
   defp stringify_value(%Decimal{} = value), do: Decimal.to_string(value, :normal)
   defp stringify_value(value) when is_boolean(value), do: Atom.to_string(value)
   defp stringify_value(nil), do: "null"
+  defp stringify_value(%Date{} = value), do: ~s|@"#{Date.to_iso8601(value)}"|
+  defp stringify_value(%FeelTime{} = value), do: ~s|@"#{FeelTime.to_string(value)}"|
+  defp stringify_value(%FeelDateTime{} = value), do: ~s|@"#{FeelDateTime.to_string(value)}"|
+  defp stringify_value(%Duration{} = value), do: ~s|@"#{Duration.to_string(value)}"|
+
+  defp stringify_value(%Boxic.FEEL.Range{} = range) do
+    open = if range.start_inclusive, do: "[", else: "("
+    close = if range.end_inclusive, do: "]", else: ")"
+    open <> stringify_value(range.start) <> ".." <> stringify_value(range.end) <> close
+  end
 
   defp stringify_value(value) when is_list(value),
     do: "[" <> Enum.map_join(value, ", ", &stringify_value/1) <> "]"

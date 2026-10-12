@@ -66,6 +66,49 @@ Fixes, so that results match the specification:
 - Return `null` for `sum([])`, `mean([])`, and the standard deviation of fewer than two
   numbers (these returned `0` or an error), and for a range function (`before`, `after`,
   `includes`, ...) with a `null` argument (it returned `false`).
+- Compare values with one FEEL equality (Tables 52 and 53) in `=`, `!=`, `in`, the unary tests
+  `=` and `!=`, `list contains`, `index of`, `distinct values`, `union`, and `coincides`. A
+  date, a duration, a range, or a function in a list or context made the built-ins fail with
+  `built-in invocation failed`: `list contains([date("2020-01-01")], date("2020-01-02"))`,
+  `list contains([duration("P1D")], duration("PT24H"))`,
+  `distinct values([duration("P1D"), duration("PT24H")])`,
+  `union([[1..5]], [[1..5]])`, and `coincides(date("2020-01-31"), date("2020-01-31"))`. Lists
+  and contexts are compared deeply, numbers by value, and two functions are equal when they are
+  the same function. The unary tests `= {a: 1.0}` and `= [1.0, 2]` were false for the numbers
+  1 and 2. A time is equal to another time by `=` (same zone, fractional seconds ignored), also
+  in the list built-ins. `= 5` and `!= 5` on a string are `null`, as `"a" = 5` is.
+- Print a date, time, date and time, duration, or range inside a list or context in `string()`
+  (`string([date("2020-01-31")])` is `[@"2020-01-31"]`), instead of failing.
+- Order values in one place for `<`, `between`, `in`, the unary tests, the range functions,
+  `min`, and `max` (Table 54). A time or date and time without an offset takes the offset of
+  the value it is compared with, so `time("10:00:00") < time("11:00:00Z")` is `true` instead of
+  `null`; `=` is unchanged. Durations of different kinds, and times in different named zones,
+  have no order and give `null` in `in` and the unary tests, where they gave `false`
+  (`@"PT1H" in [@"PT0H"..@"P1Y"]`).
+- Follow Table 78 in the range functions. `starts([1..10], [1..5])` and
+  `started by([1..5], [1..10])` were `true` (the end was not checked), `finishes([1..10],
+  [5..10])` and `finished by([5..10], [1..10])` were `true` (the start was not checked),
+  `overlaps before([0..5], (0..5))` and `overlaps after((0..5), [0..5])` were `true` (equal
+  ends ignored their inclusion), and `overlaps([1..5], [1..5])` was `false`. Date and time
+  values, times with an offset, and durations were ordered by Erlang term order: `before(date and
+  time("2020-02-01T00:00:00Z"), date and time("2020-01-31T00:00:00Z"))` was `true`,
+  `before(@"PT1.5S", @"PT10S")` was `false`, and `includes([@"PT0.5S"..@"PT10S"], @"PT5S")` was
+  `false`.
+- Return `null` from a range function for operands that have no order (`before(1, "a")`,
+  `before([1..2], "a")`, `before({a: 1}, {a: 2})`, `before(date("2020-01-01"), time("10:00:00Z"))`,
+  `before(@"P1Y", @"PT2H")`; these were `true` or `false`), and for a range with a `null`
+  endpoint (`before([1..null), 100)` was `true`, `includes([1..null), 100)` was `false`),
+  as `in` does.
+- Let `min` and `max` take strings, dates, times, date and time values, and durations of one
+  kind, as Table 75 says ("comparable items"); they accepted numbers only. Items that cannot
+  be compared with each other give `null`.
+- Decide a comparison unary test as the operator would: `< 5`, `<= 5`, `> 5`, and `>= 5` with a
+  `null` input are `null` and not `false`, so `not(< 5)` is `null` and a decision table does
+  not match it. `= null` with a `null` input, `!= null` with 5, and `!= 3` with a `null`
+  input are `true`; they were `false`. An input that cannot be compared with the bound
+  (`< 5` with `"abc"`, `<= 5` with a date) is `null` instead of a `:type_error`. Booleans are
+  ordered by the unary tests as by `<`, so `< true` with `false` is `true`.
+- `1 in []` is `false`, not `null`.
 
 Security:
 

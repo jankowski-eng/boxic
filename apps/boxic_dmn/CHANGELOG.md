@@ -11,6 +11,11 @@ Fixes:
 
 - A decision table input entry that cannot be decided for the input, such as a range
   entry with a null input, no longer raises `CaseClauseError`. The rule does not match.
+- A comparison input entry is decided like the operator, so `not(< 5)` no longer matches a
+  null input (it is `null`, and the rule does not match), `= null` matches a null input,
+  `!= null` matches a number, and `!= 3` matches a null input. An input that cannot be compared
+  with the bound (`< 5` with `"abc"`) does not match the rule, where it aborted the whole
+  decision with a `:type_error`.
 - Report a decision table input expression, input entry, or output entry with an empty or
   missing `<text>` as `{:missing_entry_text, rule_id, :input_entries | :output_entries, index}`
   from `validate/1`, and return an error from `evaluate/3` instead of raising
