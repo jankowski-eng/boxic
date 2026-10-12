@@ -1,5 +1,17 @@
 defmodule Boxic.DMN.Validator do
   @moduledoc false
+
+  # FEEL language URIs of DMN 1.3 (20191111), 1.4 (20211108), 1.5 (20230324) and 1.6 (20240513).
+  # The 1.6 B-FEEL dialect (`.../20240513/B-FEEL/`) is deliberately absent: it is not supported.
+  @feel_languages [
+    nil,
+    "feel",
+    "https://www.omg.org/spec/DMN/20191111/FEEL/",
+    "https://www.omg.org/spec/DMN/20211108/FEEL/",
+    "https://www.omg.org/spec/DMN/20230324/FEEL/",
+    "https://www.omg.org/spec/DMN/20240513/FEEL/"
+  ]
+
   alias Boxic.DMN.Model
   alias Boxic.DMN.Model.ContextExpression
   alias Boxic.DMN.Model.ConditionalExpression
@@ -115,12 +127,7 @@ defmodule Boxic.DMN.Validator do
     do: [{:missing_expression_text, id}]
 
   defp validate_expression(%LiteralExpression{expression_language: language}, id)
-       when language not in [
-              nil,
-              "feel",
-              "https://www.omg.org/spec/DMN/20191111/FEEL/",
-              "https://www.omg.org/spec/DMN/20230324/FEEL/"
-            ] do
+       when language not in @feel_languages do
     [{:unsupported_expression_language, id, language}]
   end
 

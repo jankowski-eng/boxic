@@ -173,6 +173,7 @@ defmodule Boxic.DMN.XML.Loader do
         child_text_value(node, "typeRef") ||
           (function_item && "function:" <> (attr(function_item, "outputTypeRef") || "Any")),
       allowed_values: child_text(node, "allowedValues"),
+      type_constraint: child_text(node, "typeConstraint"),
       is_collection: attr(node, "isCollection") == "true",
       components:
         Enum.map(nodes(node, "./*[local-name()='itemComponent']"), &parse_item_component/1)
@@ -185,6 +186,7 @@ defmodule Boxic.DMN.XML.Loader do
       name: attr(node, "name"),
       type_ref: child_text_value(node, "typeRef"),
       allowed_values: child_text(node, "allowedValues"),
+      type_constraint: child_text(node, "typeConstraint"),
       is_collection: attr(node, "isCollection") == "true",
       components:
         Enum.map(nodes(node, "./*[local-name()='itemComponent']"), &parse_item_component/1)
@@ -211,12 +213,6 @@ defmodule Boxic.DMN.XML.Loader do
   defp parse_bkm(node) do
     logic = node |> nodes("./*[local-name()='encapsulatedLogic']") |> List.first()
 
-    expression =
-      logic &&
-        logic
-        |> nodes("./*[not(local-name()='formalParameter') and not(local-name()='description')]")
-        |> List.first()
-
     %BusinessKnowledgeModel{
       id: attr(node, "id"),
       name: attr(node, "name"),
@@ -227,8 +223,20 @@ defmodule Boxic.DMN.XML.Loader do
           do: Enum.map(nodes(logic, "./*[local-name()='formalParameter']"), &parse_parameter/1),
           else: []
         ),
-      expression: expression && parse_expression_node(expression)
+      expression: logic && parse_encapsulated_logic(logic, attr(logic, "kind"))
     }
+  end
+
+  defp parse_encapsulated_logic(_logic, kind) when kind not in [nil, "", "FEEL"],
+    do: {:unsupported, "functionDefinition:#{kind}"}
+
+  defp parse_encapsulated_logic(logic, _kind) do
+    expression =
+      logic
+      |> nodes("./*[not(local-name()='formalParameter') and not(local-name()='description')]")
+      |> List.first()
+
+    expression && parse_expression_node(expression)
   end
 
   defp parse_parameter(node),
@@ -334,17 +342,7 @@ defmodule Boxic.DMN.XML.Loader do
         parse_invocation(expression)
 
       "functionDefinition" ->
-        body =
-          expression
-          |> nodes("./*[not(local-name()='formalParameter') and not(local-name()='description')]")
-          |> List.first()
-
-        %FunctionDefinition{
-          id: attr(expression, "id"),
-          parameters:
-            Enum.map(nodes(expression, "./*[local-name()='formalParameter']"), &parse_parameter/1),
-          body: body && parse_expression_node(body)
-        }
+        parse_function_definition(expression, attr(expression, "kind"))
 
       "relation" ->
         %Relation{
@@ -406,6 +404,27 @@ defmodule Boxic.DMN.XML.Loader do
         {:unsupported, kind}
     end
   end
+
+  # `kind` selects how the body is interpreted: FEEL (the default) or an externally defined
+  # function (Java, PMML, and since DMN 1.6 ONNX). Boxic runs natively on the BEAM and does not
+  # execute external function bodies, which are optional for every conformance level, so they
+  # are reported as unsupported instead of being evaluated as if their mapping were FEEL.
+  defp parse_function_definition(expression, kind) when kind in [nil, "", "FEEL"] do
+    body =
+      expression
+      |> nodes("./*[not(local-name()='formalParameter') and not(local-name()='description')]")
+      |> List.first()
+
+    %FunctionDefinition{
+      id: attr(expression, "id"),
+      parameters:
+        Enum.map(nodes(expression, "./*[local-name()='formalParameter']"), &parse_parameter/1),
+      body: body && parse_expression_node(body)
+    }
+  end
+
+  defp parse_function_definition(_expression, kind),
+    do: {:unsupported, "functionDefinition:#{kind}"}
 
   defp parse_boxed_child(expression, name) do
     expression

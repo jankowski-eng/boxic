@@ -8,7 +8,7 @@ Boxic's Apache-2.0 license.
 
 - Project: DMN Technology Compatibility Kit
 - Upstream repository: <https://github.com/dmn-tck/tck>
-- Pinned commit: `0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13`
+- Pinned commit: `0456e1a2fa5b9c2382cc7380cc6b95f0031e4793`
 - Vendored location: `vendor/dmn-tck`
 
 The vendored snapshot preserves the upstream licensing information available

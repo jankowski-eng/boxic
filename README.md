@@ -176,6 +176,24 @@ standard spaced names such as `string length` and `date and time`.
 # Enum.map(distinct, &Decimal.to_integer/1) == [1, 2, 3]
 ```
 
+### DMN 1.6 additions
+
+```elixir
+# descendant operator: matching entries at any depth of a context
+{:ok, [%{"b" => _}, _]} = Boxic.FEEL.evaluate("{a: {b: {b: 1}}}...b")
+
+# the `value` property of temporal values
+{:ok, _86400} = Boxic.FEEL.evaluate(~S|date("1970-01-02").value|)
+
+# single-parameter rounding, and date and time(date, time, timezone)
+{:ok, _6} = Boxic.FEEL.evaluate("round half up(5.5)")
+Boxic.FEEL.evaluate(~S|date and time(date("2024-12-24"), time("23:59:00"), "Europe/Paris")|)
+```
+
+Numbers passed where an integer is expected, such as a rounding scale or a list
+position, are truncated. The strict error mode and the B-FEEL dialect are not
+supported.
+
 ### Elixir external functions
 
 Boxic replaces Java reflection with an explicit, allowlisted BEAM integration.
@@ -220,7 +238,9 @@ also resolves namespace imports from sibling `.dmn` files.
   and cycle detection;
 - literal expressions and the full FEEL evaluator described above;
 - boxed contexts, lists, relations, conditionals, filters, and iterators;
-- invocations, function definitions, and recursive business knowledge models;
+- invocations, function definitions, and recursive business knowledge models
+  (externally defined Java, PMML, and ONNX functions are reported as
+  unsupported);
 - decision services with named or positional arguments;
 - namespace imports and qualified references across models;
 - typed input coercion, including recursively typed collections and contexts;
@@ -313,14 +333,14 @@ mix tck --all --soft-fail --report artifacts/tck-full --format both
 
 ### Current compatibility report
 
-The committed reports were generated on Elixir 1.19.1 / OTP 28 against DMN
-1.4 TCK commit `0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13`.
+The committed reports were generated on Elixir 1.20.4 / OTP 29 against DMN
+TCK commit `0456e1a2fa5b9c2382cc7380cc6b95f0031e4793`.
 
 | Suite | Passed | Unsupported | Failed / missing / error | Suite coverage | Supported-scope compatibility |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | FEEL | 2,042 | 18 | 0 | 99.13% | 100% |
-| DMN | 1,485 | 0 | 0 | 100% | 100% |
-| Combined | 3,527 | 18 | 0 | 99.49% | 100% |
+| DMN | 1,501 | 0 | 0 | 100% | 100% |
+| Combined | 3,543 | 18 | 0 | 99.49% | 100% |
 
 These results provide strong evidence that Boxic implements DMN **compliance
 level 3**: it executes the Level 3 FEEL language and boxed-expression cases,
@@ -337,9 +357,9 @@ integration for Elixir applications without pretending to implement Java
 interop.
 
 The source reports are
-[`compatibility/feel-implemented-0dbcaf9b.json`](compatibility/feel-implemented-0dbcaf9b.json)
+[`compatibility/feel-implemented-0456e1a2.json`](compatibility/feel-implemented-0456e1a2.json)
 and
-[`compatibility/dmn-implemented-0dbcaf9b.json`](compatibility/dmn-implemented-0dbcaf9b.json).
+[`compatibility/dmn-implemented-0456e1a2.json`](compatibility/dmn-implemented-0456e1a2.json).
 See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the compatibility delta and
 release procedure.
 

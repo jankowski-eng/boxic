@@ -90,6 +90,18 @@ defmodule Boxic.DMN do
   defdelegate evaluate(model, decision_name, context, opts), to: Evaluator
 
   @doc """
+  Invokes a named business knowledge model with the given arguments.
+
+  Arguments are a map keyed by parameter name, or a list in parameter order. The
+  result is converted to the type declared on the business knowledge model.
+
+      Boxic.DMN.evaluate_bkm(model, "Discount", %{"tier" => "gold"})
+  """
+  @spec evaluate_bkm(Model.t(), String.t(), map() | list()) ::
+          {:ok, term()} | {:error, evaluation_error()}
+  defdelegate evaluate_bkm(model, bkm_name, arguments), to: Evaluator
+
+  @doc """
   Evaluates a named decision service.
 
       Boxic.DMN.evaluate_service(model, "Pricing Service", %{"order" => order})

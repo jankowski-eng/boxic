@@ -395,6 +395,10 @@ defmodule Boxic.FEEL.Parser do
     parse_postfix_tail({:path, base, key}, rest)
   end
 
+  defp parse_postfix_tail(base, [:descendant, {:identifier, key} | rest]) do
+    parse_postfix_tail({:descendant, base, key}, rest)
+  end
+
   defp parse_postfix_tail(base, [:lbracket]), do: {:ok, base, [:lbracket]}
 
   defp parse_postfix_tail(base, [:lbracket, operator | _] = rest)

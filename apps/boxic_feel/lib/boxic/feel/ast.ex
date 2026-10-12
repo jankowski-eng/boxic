@@ -48,6 +48,9 @@ defmodule Boxic.FEEL.AST do
   defp validate_node({:path, source, name}) when is_binary(name) and name != "",
     do: validate_node(source)
 
+  defp validate_node({:descendant, source, name}) when is_binary(name) and name != "",
+    do: validate_node(source)
+
   defp validate_node({:filter, source, predicate}),
     do: validate_children([source, predicate])
 

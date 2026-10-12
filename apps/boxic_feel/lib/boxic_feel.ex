@@ -16,6 +16,7 @@ defmodule Boxic.FEEL do
           | {:list, [ast()]}
           | {:context, [{String.t(), ast()}]}
           | {:path, ast(), String.t()}
+          | {:descendant, ast(), String.t()}
           | {:filter, ast(), ast()}
           | {:range, boolean(), boolean(), ast(), ast()}
           | {:in, ast(), ast()}

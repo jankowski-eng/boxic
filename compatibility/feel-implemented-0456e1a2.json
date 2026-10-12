@@ -1,16 +1,32 @@
 {
   "metadata": {
     "profile": "implemented",
-    "elixir_version": "1.19.1",
-    "otp_version": "28",
+    "elixir_version": "1.20.4",
+    "otp_version": "29",
     "suite": "feel",
     "dmn_package_version": "0.1.0",
     "dmn_specification_version": "1.4",
-    "dmn_tck_commit": "0dbcaf9b98bc3af4e36d44a7aed95e9e85703a13",
+    "dmn_tck_commit": "0456e1a2fa5b9c2382cc7380cc6b95f0031e4793",
     "engine_version": "0.1.0",
-    "execution_date": "2026-07-16T16:01:50.226548Z",
+    "execution_date": "2026-10-11T10:14:13.622407Z",
     "feel_package_version": "0.1.0",
     "report_schema_version": "1.0"
+  },
+  "summary": {
+    "error": 0,
+    "disabled": 0,
+    "total": 2060,
+    "unsupported": 18,
+    "supported": 2042,
+    "missing": 0,
+    "failed": 0,
+    "corpus_total": 3561,
+    "suite_total": 2060,
+    "excluded_by_suite": 1501,
+    "passed": 2042,
+    "compatibility_percent": 100.0,
+    "suite_coverage_percent": 99.13,
+    "coverage_percent": 57.34
   },
   "results": [
     {
@@ -15146,16 +15162,7 @@
       "expected_error": false
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "string"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "decisionService_001",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15228,16 +15235,7 @@
       "expected_error": false
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "string"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "decision_001",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15249,16 +15247,7 @@
       "expected_error": true
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "number"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "decision_003",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15317,16 +15306,7 @@
       "expected_error": true
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "number"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "decision_006_a",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15350,16 +15330,7 @@
       "expected_error": false
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "string"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "decision_007_a",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15427,11 +15398,7 @@
       "expected_error": true
     },
     {
-      "error": {
-        "code": "evaluation_error",
-        "message": "{:type_error, \"number\"}",
-        "type": "feel_error"
-      },
+      "error": null,
       "id": "decision_bkm_004_a",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15473,11 +15440,7 @@
       "expected_error": false
     },
     {
-      "error": {
-        "code": "evaluation_error",
-        "message": "{:type_error, \"number\"}",
-        "type": "feel_error"
-      },
+      "error": null,
       "id": "decision_bkm_005_a",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15616,16 +15579,7 @@
       "expected_error": true
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "string"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "invoke_002",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15637,16 +15591,7 @@
       "expected_error": true
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "number"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "invoke_004",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15745,16 +15690,7 @@
       "expected_error": false
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "number"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "literal_002",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15766,16 +15702,7 @@
       "expected_error": true
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "number"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "literal_004",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -15805,16 +15732,7 @@
       "expected_error": false
     },
     {
-      "error": {
-        "items": [
-          {
-            "type": "atom",
-            "value": "type_error"
-          },
-          "number"
-        ],
-        "type": "tuple"
-      },
+      "error": null,
       "id": "literal_006",
       "status": "passed",
       "group": "0082-feel-coercion",
@@ -17079,8 +16997,8 @@
     },
     {
       "error": {
-        "code": "evaluation_error",
-        "message": "%Boxic.FEEL.Error{code: :arity_error, message: \"invalid built-in invocation: sqrt/2\"}",
+        "code": "arity_error",
+        "message": "invalid built-in invocation: sqrt/2",
         "type": "feel_error"
       },
       "id": "016",
@@ -30919,8 +30837,8 @@
     },
     {
       "error": {
-        "code": "type_error",
-        "message": "context path expects non-empty string keys",
+        "code": "arity_error",
+        "message": "invalid built-in invocation: context_put/3",
         "type": "feel_error"
       },
       "id": "nested004",
@@ -31505,21 +31423,5 @@
       "decision": "decision002",
       "expected_error": true
     }
-  ],
-  "summary": {
-    "error": 0,
-    "disabled": 0,
-    "total": 2060,
-    "unsupported": 18,
-    "supported": 2042,
-    "missing": 0,
-    "failed": 0,
-    "passed": 2042,
-    "corpus_total": 3545,
-    "suite_total": 2060,
-    "excluded_by_suite": 1485,
-    "compatibility_percent": 100.0,
-    "suite_coverage_percent": 99.13,
-    "coverage_percent": 57.6
-  }
+  ]
 }

@@ -401,6 +401,17 @@ f127338558d4e07363278a860a6cbcd93b21c06b39aed4e51702f9afa5a8fb86  TestCases/comp
 da7524fa83b2fb5fb9e7ac0b4f3151a803ee130cb99e9f3b24967ef988383df0  TestCases/compliance-level-3/1155-list-replace-function/1155-list-replace-function.dmn
 956bba89f56f652e5e0aef36760916a0eff7b1adda669e9a5b1e0e1b97d31cad  TestCases/compliance-level-3/1156-range-function/1156-range-function-test-01.xml
 8dd2fa861926abd892772eb890e92cf71728ad82f03fbae23cde01a20d9687d4  TestCases/compliance-level-3/1156-range-function/1156-range-function.dmn
+0ff35c717977cc1e0c6317cc3111e508c9c0f2afb4dac344fb4a62c655b68e9b  TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions-test-01.xml
+24fc1db0428d585411db3172bd70682b576f2840fb2536a68e1ef23eee6dd200  TestCases/compliance-level-3/1157-implicit-conversions/1157-implicit-conversions.dmn
+bdb30a9a61d7d0b3c6d01351ca823a4a989476e4758dec5a987151d6f6f036e9  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-01-A.dmn
+4ef5d053142c8ca834337e6b603752679c2427cd626f7fecf396869187de1edc  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-01-B.dmn
+b8b582cae3cafca3ced456d16ae90bbb38dd01cc4e8badf2019ff1358b025a59  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-01-C.dmn
+8e57b478b17f517bf783c2cfaae5799ddf4357e56413246c5b5baba8a94c92f1  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-02-B.dmn
+1f85bd6816998a13bc70a6e245affa70c3ca48ad9bbf813de620f3ea1a4cd651  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-02-C.dmn
+a0dfff35d544fd444b85134404fb30d02a147aa7dd99cd25ff4bd79de13ab79f  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-01.xml
+b3030749f2bf377be690fe66a6dabc0c8c2caae6f159c0a9eb07003f188bed52  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-02.xml
+bf2917c6c2c0f85d7cafc3c5b9226dfda56ff287ba44749a0c221f018e264394  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-03.xml
+9af7e42fd510d42f014f29b8ec3fabb05af79cd7fa011dd9e7601891cd8da7ac  TestCases/compliance-level-3/1160-multiple-imports/1160-multiple-imports-test-04.xml
 28735e963a2f1958a4f396c66007fe7d2a08fcdd7b11f263e9520e50b6d78e7c  TestCases/compliance-level-3/1161-boxed-list-expression/1161-boxed-list-expression-test-01.xml
 767c63e409b33e63545dcbf8df4dbe80c064d0ca2b6761950761d9c1e8661ac1  TestCases/compliance-level-3/1161-boxed-list-expression/1161-boxed-list-expression.dmn
 7489005abb875bfa98fc1bd279e1e1cc8881d5e73ddde3b5b5b30bfa39df5d05  TestCases/compliance-level-3/labeler.xslt
