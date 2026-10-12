@@ -1067,17 +1067,14 @@ defmodule Boxic.FEEL.Evaluator do
       Regex.named_captures(~r/^(?<op><=|>=|<|>|!=|=)\s*(?<rhs>.+)$/, expression)
 
     with {:ok, rhs_value} <- Boxic.FEEL.evaluate(rhs, context) do
-      case compare_for_unary_test(op, value, rhs_value) do
-        {:ok, result} -> {:ok, result}
-        {:error, %Error{} = e} -> {:error, e}
-      end
+      compare_for_unary_test(op, value, rhs_value)
     end
   end
 
-  defp compare_for_unary_test(_op, nil, _rhs), do: {:ok, false}
-  defp compare_for_unary_test(_op, _lhs, nil), do: {:ok, false}
-
-  # `= x` and `!= x` are the equality of FEEL, for values of every kind.
+  # A unary test `op x` on an input `v` means `v op x` (Table 55), so it has the result of the
+  # operator: `=` and `!=` are the equality of FEEL, where null is equal to null only
+  # (Table 49, clause 49.a). An order involving a null is null, and so is the order of values
+  # that have none, such as a number and a string.
   defp compare_for_unary_test(op, lhs, rhs) when op in ["=", "!="] do
     case Semantics.equal(lhs, rhs) do
       nil -> {:ok, nil}
@@ -1085,19 +1082,13 @@ defmodule Boxic.FEEL.Evaluator do
     end
   end
 
+  defp compare_for_unary_test(_op, nil, _rhs), do: {:ok, nil}
+  defp compare_for_unary_test(_op, _lhs, nil), do: {:ok, nil}
+
   defp compare_for_unary_test(op, lhs, rhs) do
     case Semantics.compare(lhs, rhs) do
-      :not_comparable ->
-        case not_comparable(lhs, rhs) do
-          {:ok, nil} ->
-            {:ok, nil}
-
-          {:error, _error} ->
-            {:error, error(:type_error, "unary test comparison requires compatible values")}
-        end
-
-      comparison ->
-        unary_compare_result(op, comparison)
+      :not_comparable -> {:ok, nil}
+      comparison -> unary_compare_result(op, comparison)
     end
   end
 
@@ -1108,8 +1099,6 @@ defmodule Boxic.FEEL.Evaluator do
         ">=" -> cmp in [:gt, :eq]
         "<" -> cmp == :lt
         "<=" -> cmp in [:lt, :eq]
-        "=" -> cmp == :eq
-        "!=" -> cmp != :eq
       end
 
     {:ok, result}
@@ -1163,6 +1152,9 @@ defmodule Boxic.FEEL.Evaluator do
 
   defp membership_candidate(value, %Range{} = range), do: range_contains?(range, value)
   defp membership_candidate(value, test), do: Semantics.equal(value, test)
+
+  # A value is in no test of an empty list of tests (Table 49: an empty `or` is false).
+  defp equality_any([]), do: false
 
   defp equality_any(results) do
     cond do
