@@ -121,11 +121,33 @@ defmodule Boxic.FEEL.ExternalFunctions do
   @spec invoke(t(), String.t(), [term()]) :: {:ok, term()} | {:error, Error.t()}
   def invoke(%__MODULE__{entries: entries}, name, args) do
     with {:ok, entry} <- fetch_entry(entries, name),
-         {:ok, converted} <- convert_arguments(args, entry.parameters),
+         :ok <- reject_named_arguments(args),
+         {:ok, converted} <- convert(fn -> convert_arguments(args, entry.parameters) end),
          {:ok, result} <- call(entry.callable, converted),
-         {:ok, result} <- from_elixir(result, entry.returns) do
+         {:ok, result} <- convert(fn -> from_elixir(result, entry.returns) end) do
       {:ok, result}
     end
+  end
+
+  # Registered parameters have no names to bind named arguments to, and the host function
+  # must never see the evaluator's internal representation of a named argument.
+  defp reject_named_arguments(args) do
+    if Enum.any?(args, &match?({:named_arg, _name, _value}, &1)),
+      do: {:error, Error.new(:arity_error, "external functions do not accept named arguments")},
+      else: :ok
+  end
+
+  # Converting a value is not supposed to fail, but a host function is not the only way for
+  # the boundary to see an unexpected value.
+  defp convert(conversion) do
+    conversion.()
+  rescue
+    exception ->
+      {:error,
+       Error.new(
+         :type_error,
+         "value cannot cross the external function boundary: " <> Exception.message(exception)
+       )}
   end
 
   defp fetch_entry(entries, name) do
@@ -178,9 +200,14 @@ defmodule Boxic.FEEL.ExternalFunctions do
   end
 
   defp to_elixir(value, :feel), do: {:ok, value}
-  defp to_elixir(%Decimal{} = value, :number), do: {:ok, value}
-  defp to_elixir(%Decimal{} = value, :integer), do: decimal_integer(value)
-  defp to_elixir(%Decimal{} = value, :float), do: {:ok, Decimal.to_float(value)}
+  defp to_elixir(%Decimal{coef: coef} = value, :number) when is_integer(coef), do: {:ok, value}
+
+  defp to_elixir(%Decimal{coef: coef} = value, :integer) when is_integer(coef),
+    do: decimal_integer(value)
+
+  defp to_elixir(%Decimal{coef: coef} = value, :float) when is_integer(coef),
+    do: decimal_float(value)
+
   defp to_elixir(value, :string) when is_binary(value), do: {:ok, value}
   defp to_elixir(<<codepoint::utf8>>, :char), do: {:ok, codepoint}
   defp to_elixir(value, :boolean) when is_boolean(value), do: {:ok, value}
@@ -189,13 +216,17 @@ defmodule Boxic.FEEL.ExternalFunctions do
     do: {:error, Error.new(:type_error, "value cannot be converted to #{type}")}
 
   defp decimal_integer(value) do
-    rounded = Decimal.round(value, 0)
-
-    if Decimal.equal?(value, rounded) do
-      {:ok, Decimal.to_integer(rounded)}
+    if Decimal.integer?(value) do
+      {:ok, Decimal.to_integer(value)}
     else
       {:error, Error.new(:type_error, "number is not an integer")}
     end
+  end
+
+  defp decimal_float(value) do
+    {:ok, Decimal.to_float(value)}
+  rescue
+    Decimal.Error -> {:error, Error.new(:type_error, "number is outside the range of a float")}
   end
 
   defp call(function, args) when is_function(function, length(args)),
@@ -216,13 +247,17 @@ defmodule Boxic.FEEL.ExternalFunctions do
   end
 
   defp from_elixir(value, :feel), do: {:ok, value}
-  defp from_elixir(%Decimal{} = value, :number), do: {:ok, value}
+  defp from_elixir(%Decimal{coef: coef} = value, :number) when is_integer(coef), do: {:ok, value}
   defp from_elixir(value, :number) when is_integer(value), do: {:ok, Decimal.new(value)}
   defp from_elixir(value, :number) when is_float(value), do: {:ok, Decimal.from_float(value)}
   defp from_elixir(value, :integer) when is_integer(value), do: {:ok, Decimal.new(value)}
   defp from_elixir(value, :float) when is_float(value), do: {:ok, Decimal.from_float(value)}
   defp from_elixir(value, :string) when is_binary(value), do: {:ok, value}
-  defp from_elixir(value, :char) when is_integer(value), do: {:ok, <<value::utf8>>}
+
+  defp from_elixir(value, :char)
+       when is_integer(value) and value in 0..0x10FFFF and value not in 0xD800..0xDFFF,
+       do: {:ok, <<value::utf8>>}
+
   defp from_elixir(value, :boolean) when is_boolean(value), do: {:ok, value}
 
   defp from_elixir(_value, type),

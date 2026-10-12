@@ -14,6 +14,8 @@ defmodule Boxic.FEEL.Duration do
 
   defstruct [:kind, :months, :seconds]
 
+  @max_magnitude Decimal.new("1E+34")
+
   @type kind :: :year_month | :day_time
   @type t :: %__MODULE__{kind: kind(), months: integer(), seconds: integer() | Decimal.t()}
 
@@ -122,22 +124,43 @@ defmodule Boxic.FEEL.Duration do
   Multiplies a duration by a decimal factor.
 
       Boxic.FEEL.Duration.scale(duration, Decimal.new("1.5"))
-  """
-  @spec scale(t(), Decimal.t()) :: t()
-  def scale(%__MODULE__{kind: :year_month} = duration, factor) do
-    months =
-      duration.months
-      |> Decimal.new()
-      |> Decimal.mult(factor)
-      |> Decimal.round(0, :down)
-      |> Decimal.to_integer()
 
+  Year-month results are truncated to whole months. Returns `:error` when the factor is not
+  a finite number or the result is not representable, that is, when it has more than 34
+  digits before the decimal point.
+  """
+  @spec scale(t(), Decimal.t()) :: {:ok, t()} | :error
+  def scale(%__MODULE__{} = duration, %Decimal{coef: coef} = factor) when is_integer(coef) do
+    product = Decimal.mult(scalable(duration), factor)
+
+    if representable?(product) do
+      {:ok, scaled(duration, product)}
+    else
+      :error
+    end
+  end
+
+  def scale(%__MODULE__{}, _factor), do: :error
+
+  defp scalable(%__MODULE__{kind: :year_month, months: months}), do: Decimal.new(months)
+  defp scalable(%__MODULE__{seconds: seconds}), do: decimal(seconds)
+
+  defp scaled(%__MODULE__{kind: :year_month} = duration, product) do
+    {months, _fraction} = split_seconds(product)
     %{duration | months: months, seconds: 0}
   end
 
-  def scale(%__MODULE__{kind: :day_time} = duration, factor) do
-    %{duration | months: 0, seconds: Decimal.mult(decimal(duration.seconds), factor)}
-  end
+  defp scaled(%__MODULE__{} = duration, %Decimal{coef: 0}),
+    do: %{duration | months: 0, seconds: Decimal.new(0)}
+
+  defp scaled(%__MODULE__{} = duration, product), do: %{duration | months: 0, seconds: product}
+
+  # Decimal turns an overflow into an infinity, and a number with more than 34 integer
+  # digits cannot be processed further.
+  defp representable?(%Decimal{coef: coef} = value) when is_integer(coef),
+    do: Decimal.compare(Decimal.abs(value), @max_magnitude) == :lt
+
+  defp representable?(_value), do: false
 
   @doc """
   Divides two durations of the same kind.
@@ -198,9 +221,7 @@ defmodule Boxic.FEEL.Duration do
   def to_string(%__MODULE__{kind: :day_time, seconds: seconds}) do
     seconds = decimal(seconds)
     sign = if Decimal.negative?(seconds), do: "-", else: ""
-    seconds = Decimal.abs(seconds)
-    whole = seconds |> Decimal.round(0, :down) |> Decimal.to_integer()
-    fraction = Decimal.sub(seconds, Decimal.new(whole))
+    {whole, fraction} = seconds |> Decimal.abs() |> split_seconds()
     days = div(whole, 86_400)
     hours = div(rem(whole, 86_400), 3_600)
     minutes = div(rem(whole, 3_600), 60)
@@ -230,31 +251,40 @@ defmodule Boxic.FEEL.Duration do
   """
   @spec add_to_date(Date.t(), t()) :: Date.t()
   def add_to_date(%Date{} = date, %__MODULE__{} = duration) do
-    day_delta =
-      duration.seconds
-      |> decimal()
-      |> Decimal.div(Decimal.new(86_400))
-      |> Decimal.round(0, :floor)
-      |> Decimal.to_integer()
-
     date
     |> add_months(duration.months)
-    |> Date.add(day_delta)
+    |> Date.add(floor_days(duration.seconds))
   end
 
   @doc """
-  Adds a duration to an Elixir date-time.
+  Adds a duration to an Elixir date-time, in the date-time's own time zone.
 
       Boxic.FEEL.Duration.add_to_datetime(datetime, duration)
+
+  Returns `:error` when the shifted wall-clock time does not exist in the zone, or when the
+  zone is not in the `tz` time zone database. A wall-clock time that occurs twice resolves to
+  the earlier occurrence.
   """
-  @spec add_to_datetime(DateTime.t(), t()) :: DateTime.t()
+  @spec add_to_datetime(DateTime.t(), t()) :: {:ok, DateTime.t()} | :error
   def add_to_datetime(%DateTime{} = datetime, %__MODULE__{} = duration) do
     shifted_date = add_months(DateTime.to_date(datetime), duration.months)
+    {seconds, _fraction} = split_seconds(duration.seconds)
 
-    {:ok, shifted_datetime} =
-      DateTime.new(shifted_date, DateTime.to_time(datetime), datetime.time_zone)
+    case DateTime.new(
+           shifted_date,
+           DateTime.to_time(datetime),
+           datetime.time_zone,
+           Tz.TimeZoneDatabase
+         ) do
+      {:ok, shifted} ->
+        {:ok, DateTime.add(shifted, seconds, :second, Tz.TimeZoneDatabase)}
 
-    DateTime.add(shifted_datetime, truncate(duration.seconds), :second)
+      {:ambiguous, first, _second} ->
+        {:ok, DateTime.add(first, seconds, :second, Tz.TimeZoneDatabase)}
+
+      _gap_or_error ->
+        :error
+    end
   end
 
   @doc """
@@ -278,6 +308,32 @@ defmodule Boxic.FEEL.Duration do
 
     {:ok, result} = Time.new(hour, minute, second)
     result
+  end
+
+  @doc false
+  # Splits seconds into the whole seconds, truncated toward zero, and the fraction that is
+  # left, which has the same sign. This is integer arithmetic on the digits of the number,
+  # unlike Decimal.round/3 and Decimal.div_int/2, which fail for numbers with more digits
+  # than the Decimal context allows.
+  @spec split_seconds(integer() | Decimal.t()) :: {integer(), Decimal.t()}
+  def split_seconds(seconds) when is_integer(seconds), do: {seconds, Decimal.new(0)}
+
+  def split_seconds(%Decimal{sign: sign, coef: coef, exp: exp}) when is_integer(coef) do
+    if exp >= 0 do
+      {sign * coef * Integer.pow(10, exp), Decimal.new(0)}
+    else
+      divisor = Integer.pow(10, -exp)
+      {sign * div(coef, divisor), %Decimal{sign: sign, coef: rem(coef, divisor), exp: exp}}
+    end
+  end
+
+  @doc false
+  # The number of whole days that `seconds` reaches, rounded toward negative infinity.
+  @spec floor_days(integer() | Decimal.t()) :: integer()
+  def floor_days(seconds) do
+    {whole, fraction} = split_seconds(seconds)
+    floor_seconds = if fraction.sign == -1 and fraction.coef != 0, do: whole - 1, else: whole
+    Integer.floor_div(floor_seconds, 86_400)
   end
 
   defp add_months(%Date{} = date, 0), do: date
@@ -337,8 +393,7 @@ defmodule Boxic.FEEL.Duration do
   defp abs_number(%Decimal{} = value), do: Decimal.abs(value)
   defp abs_number(value), do: Kernel.abs(value)
 
-  defp truncate(%Decimal{} = value), do: value |> Decimal.round(0, :down) |> Decimal.to_integer()
-  defp truncate(value), do: value
+  defp truncate(seconds), do: seconds |> split_seconds() |> elem(0)
 
   defp compare_numbers(%Decimal{} = left, %Decimal{} = right), do: Decimal.compare(left, right)
   defp compare_numbers(%Decimal{} = left, right), do: Decimal.compare(left, Decimal.new(right))

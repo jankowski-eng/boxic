@@ -212,11 +212,90 @@ defmodule Boxic.FEEL.Parser do
     end
   end
 
-  defp parse_comparison_tail(left, [:instance, :of | rest]) when rest != [] do
-    {:ok, {:instance_of, left, type_tokens_to_string(rest)}, []}
+  defp parse_comparison_tail(left, [:instance, :of | rest]) do
+    with {:ok, type_tokens, rest2} <- take_type(rest) do
+      {:ok, {:instance_of, left, type_tokens_to_string(type_tokens)}, rest2}
+    end
   end
 
   defp parse_comparison_tail(left, rest), do: {:ok, left, rest}
+
+  # Type names that the tokenizer does not join into a single identifier, because `and` is a
+  # keyword.
+  @spaced_types [
+    [{:identifier, "days"}, :and, {:identifier, "time"}, {:identifier, "duration"}],
+    [{:identifier, "years"}, :and, {:identifier, "months"}, {:identifier, "duration"}],
+    [{:identifier, "date"}, :and, {:identifier, "time"}]
+  ]
+
+  # A type after `instance of` is a single type expression, so the tokens that follow it
+  # belong to the surrounding expression. It is one of:
+  #
+  #   * `list<T>`, `range<T>`, or `context<name: T, ...>`
+  #   * `function<T, ...> -> T`, or just `function`
+  #   * `days and time duration`, `years and months duration`, or `date and time`
+  #   * a name of one or more words, such as `number` or `Customer Record`
+  defp take_type([{:identifier, kind}, :lt | rest]) when kind in ["list", "range", "context"] do
+    with {:ok, inner, rest2} <- take_type_arguments(rest, 0, []) do
+      {:ok, [{:identifier, kind}, :lt | inner], rest2}
+    end
+  end
+
+  defp take_type([:function, :lt | rest]) do
+    with {:ok, inner, rest2} <- take_type_arguments(rest, 0, []) do
+      head = [:function, :lt | inner]
+
+      case rest2 do
+        [:minus, :gt | rest3] ->
+          with {:ok, result, rest4} <- take_type(rest3) do
+            {:ok, head ++ [:minus, :gt | result], rest4}
+          end
+
+        _ ->
+          {:ok, head, rest2}
+      end
+    end
+  end
+
+  defp take_type([:function | rest]), do: {:ok, [:function], rest}
+
+  defp take_type([{:identifier, _name} | _] = tokens) do
+    case Enum.find(@spaced_types, &List.starts_with?(tokens, &1)) do
+      nil ->
+        {words, rest} = Enum.split_while(tokens, &match?({:identifier, _}, &1))
+        {:ok, words, rest}
+
+      words ->
+        {:ok, words, Enum.drop(tokens, length(words))}
+    end
+  end
+
+  defp take_type(_tokens),
+    do: {:error, error(:invalid_syntax, "expected a type after instance of")}
+
+  # Takes the tokens up to and including the `>` that closes an already opened `<`.
+  defp take_type_arguments([:gt | rest], 0, acc), do: {:ok, Enum.reverse([:gt | acc]), rest}
+
+  defp take_type_arguments([:minus, :gt | rest], depth, acc),
+    do: take_type_arguments(rest, depth, [:gt, :minus | acc])
+
+  defp take_type_arguments([:gt | rest], depth, acc),
+    do: take_type_arguments(rest, depth - 1, [:gt | acc])
+
+  defp take_type_arguments([:lt | rest], depth, acc),
+    do: take_type_arguments(rest, depth + 1, [:lt | acc])
+
+  defp take_type_arguments([token | rest], depth, acc) do
+    if type_argument_token?(token),
+      do: take_type_arguments(rest, depth, [token | acc]),
+      else: {:error, error(:invalid_syntax, "invalid type after instance of")}
+  end
+
+  defp take_type_arguments([], _depth, _acc),
+    do: {:error, error(:invalid_syntax, "unterminated type after instance of")}
+
+  defp type_argument_token?({:identifier, _name}), do: true
+  defp type_argument_token?(token), do: token in [:comma, :colon, :and, :function]
 
   defp type_tokens_to_string(tokens) do
     tokens
@@ -228,7 +307,7 @@ defmodule Boxic.FEEL.Parser do
       :colon -> ":"
       :minus -> "-"
       :and -> "and"
-      token -> Atom.to_string(token)
+      :function -> "function"
     end)
     |> Enum.join(" ")
     |> String.replace(~r/\s*<\s*/, "<")

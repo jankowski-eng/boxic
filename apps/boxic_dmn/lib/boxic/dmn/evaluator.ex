@@ -26,7 +26,9 @@ defmodule Boxic.DMN.Evaluator do
           | {atom(), term(), term(), term()}
 
   @spec evaluate(Model.t(), String.t(), map()) :: {:ok, term()} | {:error, evaluation_error()}
-  def evaluate(%Model{} = model, decision_name, context \\ %{})
+  def evaluate(model, decision_name, context \\ %{})
+
+  def evaluate(%Model{} = model, decision_name, context)
       when is_binary(decision_name) and is_map(context) do
     with {:ok, context} <- coerce_input_context(model, context),
          {:ok, decision} <- find_decision(model, decision_name),
@@ -35,30 +37,65 @@ defmodule Boxic.DMN.Evaluator do
     end
   end
 
+  def evaluate(model, decision_name, context),
+    do: {:error, invalid_evaluation_argument(model, decision_name, context)}
+
   @spec evaluate(Model.t(), String.t(), map(), keyword()) ::
           {:ok, term()} | {:error, evaluation_error()}
   def evaluate(%Model{} = model, decision_name, context, opts)
-      when is_binary(decision_name) and is_map(context) and is_list(opts) do
-    external_context =
-      case Keyword.get(opts, :external_functions) do
-        nil -> %{}
-        registry -> ExternalFunctions.to_context(registry)
-      end
+      when is_binary(decision_name) and is_map(context) do
+    with true <- Keyword.keyword?(opts),
+         {:ok, external_context} <- external_context(Keyword.get(opts, :external_functions)) do
+      evaluate(model, decision_name, Map.merge(context, external_context))
+    else
+      false -> {:error, {:invalid_options, opts}}
+      {:error, _reason} = error -> error
+    end
+  end
 
-    evaluate(model, decision_name, Map.merge(context, external_context))
+  def evaluate(model, decision_name, context, _opts),
+    do: {:error, invalid_evaluation_argument(model, decision_name, context)}
+
+  defp external_context(nil), do: {:ok, %{}}
+
+  defp external_context(registry) do
+    {:ok, ExternalFunctions.to_context(registry)}
+  rescue
+    _ in [FunctionClauseError, UndefinedFunctionError] ->
+      {:error, {:invalid_external_functions, registry}}
+  end
+
+  defp invalid_evaluation_argument(model, decision_name, context) do
+    cond do
+      not match?(%Model{}, model) -> {:invalid_model, model}
+      not is_binary(decision_name) -> {:invalid_decision_name, decision_name}
+      not is_map(context) -> {:invalid_context, context}
+    end
   end
 
   @spec evaluate_service(Model.t(), String.t(), map() | list()) ::
           {:ok, term()} | {:error, evaluation_error()}
   def evaluate_service(%Model{} = model, service_name, arguments)
       when is_binary(service_name) and (is_map(arguments) or is_list(arguments)) do
-    with {:ok, service} <- find_service(model, service_name) do
-      args =
-        if is_map(arguments),
-          do: Enum.map(arguments, fn {name, value} -> {:named_arg, name, value} end),
-          else: arguments
+    if is_list(arguments) and List.improper?(arguments) do
+      {:error, {:invalid_arguments, arguments}}
+    else
+      with {:ok, service} <- find_service(model, service_name) do
+        args =
+          if is_map(arguments),
+            do: Enum.map(arguments, fn {name, value} -> {:named_arg, name, value} end),
+            else: arguments
 
-      invoke_decision_service(model, service, %{}, args)
+        invoke_decision_service(model, service, %{}, args)
+      end
+    end
+  end
+
+  def evaluate_service(model, service_name, arguments) do
+    cond do
+      not match?(%Model{}, model) -> {:error, {:invalid_model, model}}
+      not is_binary(service_name) -> {:error, {:invalid_service_name, service_name}}
+      true -> {:error, {:invalid_arguments, arguments}}
     end
   end
 
@@ -342,6 +379,9 @@ defmodule Boxic.DMN.Evaluator do
   defp resolve_requirement(_model, requirement, _context, _memo, _visiting),
     do: {:error, {:invalid_information_requirement, requirement}}
 
+  defp fetch_reference(_index, kind, id) when not is_binary(id),
+    do: {:error, {:unresolved_reference, kind, id}}
+
   defp fetch_reference(index, kind, id) do
     case Map.fetch(index, id) do
       {:ok, value} ->
@@ -585,11 +625,14 @@ defmodule Boxic.DMN.Evaluator do
     do: coerce_type(value, type, model)
 
   defp coerce_type(value, "string", _model) when is_binary(value), do: {:ok, value}
-  defp coerce_type(%Decimal{} = value, "number", _model), do: {:ok, value}
+  # NaN and the infinities are not FEEL numbers: Decimal.parse/1 accepts them, but nothing
+  # can be done with them.
+  defp coerce_type(%Decimal{coef: coef} = value, "number", _model) when is_integer(coef),
+    do: {:ok, value}
 
   defp coerce_type(value, "number", _model) when is_binary(value) do
     case Decimal.parse(value) do
-      {number, ""} -> {:ok, number}
+      {%Decimal{coef: coef} = number, ""} when is_integer(coef) -> {:ok, number}
       _ -> {:error, {:type_error, "number"}}
     end
   end

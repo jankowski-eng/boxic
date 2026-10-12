@@ -218,7 +218,7 @@ defmodule Boxic.FEEL.Evaluator do
     with {:ok, value} <- eval(expr, context) do
       case value do
         nil -> {:ok, nil}
-        %Decimal{} = decimal -> {:ok, decimal_negate(decimal)}
+        %Decimal{} = decimal -> finite_number(fn -> decimal_negate(decimal) end)
         %Duration{} = duration -> {:ok, Duration.negate(duration)}
         _ -> {:error, error(:type_error, "negation requires a number")}
       end
@@ -269,8 +269,10 @@ defmodule Boxic.FEEL.Evaluator do
   defp property_value(%Duration{kind: :day_time, seconds: seconds}, "minutes"),
     do: seconds_component(seconds, 60, :remainder)
 
-  defp property_value(%Duration{kind: :day_time, seconds: seconds}, "seconds"),
-    do: Decimal.rem(decimal_value(seconds), Decimal.new(60))
+  defp property_value(%Duration{kind: :day_time, seconds: seconds}, "seconds") do
+    {whole, fraction} = Duration.split_seconds(seconds)
+    decimal_add(decimal_new(rem(whole, 60)), fraction)
+  end
 
   defp property_value(%Duration{}, key) when key in ~w(days hours minutes seconds), do: nil
 
@@ -296,19 +298,14 @@ defmodule Boxic.FEEL.Evaluator do
   defp property_value(map, key), do: Map.get(map, key)
 
   defp seconds_component(seconds, divisor, :quotient) do
-    seconds |> decimal_value() |> Decimal.div_int(divisor) |> Decimal.round(0, :down)
+    {whole, _fraction} = Duration.split_seconds(seconds)
+    decimal_new(div(whole, divisor))
   end
 
   defp seconds_component(seconds, divisor, :remainder) do
-    seconds
-    |> decimal_value()
-    |> Decimal.div_int(divisor)
-    |> Decimal.round(0, :down)
-    |> Decimal.rem(Decimal.new(if(divisor == 3_600, do: 24, else: 60)))
+    {whole, _fraction} = Duration.split_seconds(seconds)
+    decimal_new(rem(div(whole, divisor), if(divisor == 3_600, do: 24, else: 60)))
   end
-
-  defp decimal_value(%Decimal{} = value), do: value
-  defp decimal_value(value), do: decimal_new(value)
 
   defp eval_call_args([], _context, acc), do: {:ok, Enum.reverse(acc)}
 
@@ -545,7 +542,11 @@ defmodule Boxic.FEEL.Evaluator do
   end
 
   defp apply_function(fun, args) when is_function(fun, length(args)) do
-    {:ok, apply(fun, args)}
+    if Enum.any?(args, &match?({:named_arg, _name, _value}, &1)) do
+      {:error, error(:arity_error, "a host function does not accept named arguments")}
+    else
+      {:ok, apply(fun, args)}
+    end
   end
 
   defp apply_function(_callee, _args),
@@ -636,10 +637,10 @@ defmodule Boxic.FEEL.Evaluator do
   defp eval_binary(:minus, left, right), do: minus(left, right)
 
   defp eval_binary(:mul, %Duration{} = duration, %Decimal{} = factor),
-    do: {:ok, Duration.scale(duration, factor)}
+    do: scale_duration(duration, factor)
 
   defp eval_binary(:mul, %Decimal{} = factor, %Duration{} = duration),
-    do: {:ok, Duration.scale(duration, factor)}
+    do: scale_duration(duration, factor)
 
   defp eval_binary(:mul, left, right), do: decimal_binary(left, right, &decimal_mult/2)
   defp eval_binary(:pow, left, right), do: decimal_power(left, right)
@@ -653,17 +654,20 @@ defmodule Boxic.FEEL.Evaluator do
         {:ok, nil}
 
       {%Decimal{} = l, %Decimal{} = r} ->
-        if decimal_equal?(r, decimal_new("0")) do
-          {:ok, nil}
-        else
-          {:ok, decimal_div(l, r)}
-        end
+        finite_number(fn ->
+          if decimal_equal?(r, decimal_new("0")), do: nil, else: decimal_div(l, r)
+        end)
 
       {%Duration{} = duration, %Decimal{} = divisor} ->
-        if decimal_equal?(divisor, decimal_new("0")) do
-          {:ok, nil}
+        with {:ok, %Decimal{} = reciprocal} <-
+               finite_number(fn ->
+                 if decimal_equal?(divisor, decimal_new("0")),
+                   do: nil,
+                   else: decimal_div(decimal_new("1"), divisor)
+               end) do
+          scale_duration(duration, reciprocal)
         else
-          {:ok, Duration.scale(duration, decimal_div(decimal_new("1"), divisor))}
+          {:ok, nil} -> {:ok, nil}
         end
 
       {%Duration{} = left_duration, %Duration{} = right_duration} ->
@@ -683,7 +687,7 @@ defmodule Boxic.FEEL.Evaluator do
         {:ok, nil}
 
       match?(%Decimal{}, left) and match?(%Decimal{}, right) ->
-        {:ok, compare_from_op(op, decimal_compare(left, right))}
+        compare_temporal(op, compare_decimals(left, right))
 
       is_struct(left, Date) and is_struct(right, Date) ->
         {:ok, compare_from_op(op, Date.compare(left, right))}
@@ -836,7 +840,7 @@ defmodule Boxic.FEEL.Evaluator do
         {:ok, nil}
 
       {%Decimal{} = l, %Decimal{} = r} ->
-        {:ok, decimal_add(l, r)}
+        finite_number(fn -> decimal_add(l, r) end)
 
       {left, right} when is_binary(left) and is_binary(right) ->
         {:ok, left <> right}
@@ -848,10 +852,10 @@ defmodule Boxic.FEEL.Evaluator do
         {:ok, Duration.add_to_date(date, duration)}
 
       {%DateTime{} = datetime, %Duration{} = duration} ->
-        {:ok, Duration.add_to_datetime(datetime, duration)}
+        shift_datetime(datetime, duration)
 
       {%Duration{} = duration, %DateTime{} = datetime} ->
-        {:ok, Duration.add_to_datetime(datetime, duration)}
+        shift_datetime(datetime, duration)
 
       {%FeelDateTime{} = datetime, %Duration{} = duration} ->
         temporal_arithmetic(FeelDateTime.add_duration(datetime, duration))
@@ -891,7 +895,7 @@ defmodule Boxic.FEEL.Evaluator do
         {:ok, nil}
 
       {%Decimal{} = l, %Decimal{} = r} ->
-        {:ok, decimal_sub(l, r)}
+        finite_number(fn -> decimal_sub(l, r) end)
 
       {%Date{} = left_date, %Date{} = right_date} ->
         {:ok, Duration.from_days(Date.diff(left_date, right_date))}
@@ -925,7 +929,7 @@ defmodule Boxic.FEEL.Evaluator do
         {:ok, Duration.add_to_date(date, Duration.negate(duration))}
 
       {%DateTime{} = datetime, %Duration{} = duration} ->
-        {:ok, Duration.add_to_datetime(datetime, Duration.negate(duration))}
+        shift_datetime(datetime, Duration.negate(duration))
 
       {%FeelDateTime{} = datetime, %Duration{} = duration} ->
         temporal_arithmetic(FeelDateTime.add_duration(datetime, Duration.negate(duration)))
@@ -944,6 +948,22 @@ defmodule Boxic.FEEL.Evaluator do
 
       _ ->
         {:error, error(:type_error, "subtraction requires compatible values")}
+    end
+  end
+
+  # A wall-clock time that does not exist in the zone, or a zone that is not known, has no
+  # shifted value.
+  defp shift_datetime(datetime, duration) do
+    case Duration.add_to_datetime(datetime, duration) do
+      {:ok, shifted} -> {:ok, shifted}
+      :error -> {:ok, nil}
+    end
+  end
+
+  defp scale_duration(duration, factor) do
+    case Duration.scale(duration, factor) do
+      {:ok, scaled} -> {:ok, scaled}
+      :error -> {:ok, nil}
     end
   end
 
@@ -981,7 +1001,7 @@ defmodule Boxic.FEEL.Evaluator do
     case {left, right} do
       {nil, _} -> {:ok, nil}
       {_, nil} -> {:ok, nil}
-      {%Decimal{} = l, %Decimal{} = r} -> {:ok, operation.(l, r)}
+      {%Decimal{} = l, %Decimal{} = r} -> finite_number(fn -> operation.(l, r) end)
       _ -> {:error, error(:type_error, "arithmetic requires numbers")}
     end
   end
@@ -990,45 +1010,73 @@ defmodule Boxic.FEEL.Evaluator do
   defp decimal_power(_left, nil), do: {:ok, nil}
 
   defp decimal_power(%Decimal{} = base, %Decimal{} = exponent) do
-    case decimal_integer(exponent) do
-      {:ok, integer} when integer < 0 ->
-        powered = decimal_integer_power(base, -integer)
-
-        if decimal_equal?(powered, decimal_new("0")) do
-          {:ok, nil}
-        else
-          {:ok, decimal_div(decimal_new("1"), powered)}
-        end
-
-      {:ok, integer} ->
-        {:ok, decimal_integer_power(base, integer)}
-
-      :error ->
-        {:ok,
-         base
-         |> Decimal.to_float()
-         |> :math.pow(Decimal.to_float(exponent))
-         |> Decimal.from_float()}
-    end
+    finite_number(fn ->
+      case decimal_integer(exponent) do
+        {:ok, integer} when integer < 0 -> reciprocal_power(base, -integer)
+        {:ok, integer} -> decimal_integer_power(base, integer)
+        :error -> decimal_float_power(base, exponent)
+      end
+    end)
   end
 
   defp decimal_power(_left, _right),
     do: {:error, error(:type_error, "exponentiation requires numbers")}
 
-  defp decimal_integer_power(_base, 0), do: decimal_new("1")
+  defp reciprocal_power(base, exponent) do
+    powered = decimal_integer_power(base, exponent)
 
+    if is_nil(powered) or decimal_equal?(powered, decimal_new("0")),
+      do: nil,
+      else: decimal_div(decimal_new("1"), powered)
+  end
+
+  # Repeated squaring. Returns nil as soon as the result overflows, instead of an infinity.
   defp decimal_integer_power(base, exponent) do
     decimal_integer_power(base, exponent, decimal_new("1"))
   end
 
   defp decimal_integer_power(_base, 0, acc), do: acc
 
-  defp decimal_integer_power(base, exponent, acc) when rem(exponent, 2) == 1 do
-    decimal_integer_power(decimal_mult(base, base), div(exponent, 2), decimal_mult(acc, base))
+  defp decimal_integer_power(base, exponent, acc) do
+    acc = if rem(exponent, 2) == 1, do: decimal_mult(acc, base), else: acc
+    remaining = div(exponent, 2)
+
+    cond do
+      not finite?(acc) ->
+        nil
+
+      remaining == 0 ->
+        acc
+
+      true ->
+        squared = decimal_mult(base, base)
+        if finite?(squared), do: decimal_integer_power(squared, remaining, acc)
+    end
   end
 
-  defp decimal_integer_power(base, exponent, acc) do
-    decimal_integer_power(decimal_mult(base, base), div(exponent, 2), acc)
+  # A power with a fractional exponent is computed with floating-point numbers, so it is
+  # null where they cannot represent the base, the exponent, or the result, and where the
+  # result is not a real number: a negative base, or zero to a negative power.
+  defp decimal_float_power(base, exponent) do
+    with {:ok, float_base} <- decimal_to_float(base),
+         {:ok, float_exponent} <- decimal_to_float(exponent),
+         {:ok, result} <- float_pow(float_base, float_exponent) do
+      Decimal.from_float(result)
+    else
+      :error -> nil
+    end
+  end
+
+  defp decimal_to_float(value) do
+    {:ok, Decimal.to_float(value)}
+  rescue
+    _ in [Decimal.Error, ArgumentError] -> :error
+  end
+
+  defp float_pow(base, exponent) do
+    {:ok, :math.pow(base, exponent)}
+  rescue
+    ArithmeticError -> :error
   end
 
   defp decimal_integer(value) do
@@ -1152,19 +1200,10 @@ defmodule Boxic.FEEL.Evaluator do
   defp compare_for_unary_test(_op, _lhs, nil), do: {:ok, false}
 
   defp compare_for_unary_test(op, %Decimal{} = lhs, %Decimal{} = rhs) do
-    cmp = decimal_compare(lhs, rhs)
-
-    result =
-      case op do
-        ">" -> cmp == :gt
-        ">=" -> cmp in [:gt, :eq]
-        "<" -> cmp == :lt
-        "<=" -> cmp in [:lt, :eq]
-        "=" -> cmp == :eq
-        "!=" -> cmp != :eq
-      end
-
-    {:ok, result}
+    case compare_decimals(lhs, rhs) do
+      :unordered -> {:ok, nil}
+      comparison -> unary_compare_result(op, comparison)
+    end
   end
 
   defp compare_for_unary_test(op, %Date{} = lhs, %Date{} = rhs)
@@ -1309,7 +1348,13 @@ defmodule Boxic.FEEL.Evaluator do
     end
   end
 
-  defp compare_for_bounds(%Decimal{} = left, %Decimal{} = right), do: decimal_compare(left, right)
+  defp compare_for_bounds(%Decimal{} = left, %Decimal{} = right) do
+    case compare_decimals(left, right) do
+      :unordered -> :not_comparable
+      comparison -> comparison
+    end
+  end
+
   defp compare_for_bounds(%Date{} = left, %Date{} = right), do: Date.compare(left, right)
   defp compare_for_bounds(%Time{} = left, %Time{} = right), do: Time.compare(left, right)
 
@@ -1356,6 +1401,19 @@ defmodule Boxic.FEEL.Evaluator do
 
   defp error(code, message), do: %Error{code: code, message: message}
 
+  # FEEL numbers are finite. Decimal reports an overflow as an infinity, and an operation on
+  # one as an exception, so a result that is not a finite number is null.
+  defp finite_number(operation) do
+    case operation.() do
+      %Decimal{} = number -> if finite?(number), do: {:ok, number}, else: {:ok, nil}
+      _no_number -> {:ok, nil}
+    end
+  rescue
+    Decimal.Error -> {:ok, nil}
+  end
+
+  defp finite?(%Decimal{coef: coef}), do: is_integer(coef)
+
   defp decimal_new(value), do: apply(Decimal, :new, [value])
   defp decimal_add(left, right), do: apply(Decimal, :add, [left, right])
   defp decimal_sub(left, right), do: apply(Decimal, :sub, [left, right])
@@ -1364,4 +1422,11 @@ defmodule Boxic.FEEL.Evaluator do
   defp decimal_negate(value), do: apply(Decimal, :negate, [value])
   defp decimal_equal?(left, right), do: apply(Decimal, :equal?, [left, right])
   defp decimal_compare(left, right), do: apply(Decimal, :compare, [left, right])
+
+  # NaN is not a FEEL number, but a host can put one in the context. It is not ordered.
+  defp compare_decimals(%Decimal{} = left, %Decimal{} = right) do
+    if Decimal.nan?(left) or Decimal.nan?(right),
+      do: :unordered,
+      else: decimal_compare(left, right)
+  end
 end

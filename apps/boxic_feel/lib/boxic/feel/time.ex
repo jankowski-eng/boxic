@@ -154,20 +154,24 @@ defmodule Boxic.FEEL.Time do
   """
   @spec add_seconds(t(), integer() | Decimal.t()) :: t()
   def add_seconds(%__MODULE__{} = value, seconds) do
-    day = Decimal.new(86_400)
     total = Decimal.add(local_seconds(value), decimal(seconds))
-    normalized = Decimal.rem(total, day)
 
-    normalized =
-      if Decimal.negative?(normalized), do: Decimal.add(normalized, day), else: normalized
+    # Floor the total to whole seconds, keeping a fraction between 0 and 1.
+    {whole, fraction} =
+      case Boxic.FEEL.Duration.split_seconds(total) do
+        {whole, %Decimal{sign: -1, coef: coef} = fraction} when coef != 0 ->
+          {whole - 1, Decimal.add(fraction, 1)}
 
-    integer_seconds = normalized |> Decimal.round(0, :down) |> Decimal.to_integer()
-    fraction = Decimal.sub(normalized, Decimal.new(integer_seconds))
+        split ->
+          split
+      end
+
+    second_of_day = Integer.mod(whole, 86_400)
 
     %__MODULE__{
-      hour: div(integer_seconds, 3_600),
-      minute: div(rem(integer_seconds, 3_600), 60),
-      second: Decimal.add(Decimal.new(rem(integer_seconds, 60)), fraction),
+      hour: div(second_of_day, 3_600),
+      minute: div(rem(second_of_day, 3_600), 60),
+      second: Decimal.add(Decimal.new(rem(second_of_day, 60)), fraction),
       zone: value.zone
     }
   end
