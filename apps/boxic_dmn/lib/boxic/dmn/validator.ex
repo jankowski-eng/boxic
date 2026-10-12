@@ -232,16 +232,33 @@ defmodule Boxic.DMN.Validator do
         )
       end)
 
-    clause_errors =
-      Enum.flat_map(table.inputs, fn input ->
-        if is_binary(input.expression),
-          do: [],
-          else: [{:missing_input_expression, decision_id, input.id}]
-      end)
-
     policy_errors = validate_hit_policy(table, decision_id)
 
-    errors ++ rule_errors ++ clause_errors ++ policy_errors
+    errors ++ rule_errors ++ missing_texts(table, decision_id) ++ policy_errors
+  end
+
+  @doc false
+  # An input expression, input entry, or output entry with an empty or missing <text> leaves
+  # nothing to evaluate. The decision table evaluator checks the same, since a table inside
+  # a business knowledge model is not validated up front.
+  @spec missing_texts(DecisionTable.t(), term()) :: [validation_error()]
+  def missing_texts(%DecisionTable{} = table, owner) do
+    expression_errors =
+      for input <- table.inputs,
+          not is_binary(input.expression),
+          do: {:missing_input_expression, owner, input.id}
+
+    entry_errors =
+      for rule <- table.rules,
+          {kind, entries} <- [
+            input_entries: rule.input_entries,
+            output_entries: rule.output_entries
+          ],
+          {text, index} <- Enum.with_index(entries),
+          not is_binary(text),
+          do: {:missing_entry_text, rule.id, kind, index}
+
+    expression_errors ++ entry_errors
   end
 
   defp require_nonempty(errors, [], owner), do: [{:missing_table_component, owner} | errors]

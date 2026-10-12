@@ -1,13 +1,21 @@
 defmodule Boxic.DMN.DecisionTable do
   @moduledoc false
-  alias Boxic.DMN.FEEL
+  alias Boxic.DMN.{FEEL, Validator}
   alias Boxic.DMN.Model.DecisionTable
 
   def evaluate(%DecisionTable{} = table, context) do
-    with {:ok, input_values} <- evaluate_table_inputs(table.inputs, context),
+    with :ok <- check_texts(table),
+         {:ok, input_values} <- evaluate_table_inputs(table.inputs, context),
          {:ok, matches} <- matching_rules(table.rules, input_values, context),
          {:ok, results} <- evaluate_matched_outputs(matches, table.outputs, context) do
       reduce_hit_policy(table, matches, results, context)
+    end
+  end
+
+  defp check_texts(table) do
+    case Validator.missing_texts(table, nil) do
+      [] -> :ok
+      errors -> {:error, errors}
     end
   end
 
