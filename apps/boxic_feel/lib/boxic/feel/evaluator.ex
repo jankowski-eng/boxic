@@ -31,9 +31,7 @@ defmodule Boxic.FEEL.Evaluator do
 
       true ->
         with {:ok, expected} <- Boxic.FEEL.evaluate(trimmed, context) do
-          if is_list(expected),
-            do: {:ok, Enum.any?(expected, &Semantics.equal?(value, &1))},
-            else: {:ok, Semantics.equal?(value, expected)}
+          {:ok, membership_result(value, expected)}
         end
     end
   end
@@ -718,10 +716,10 @@ defmodule Boxic.FEEL.Evaluator do
     end
   end
 
-  defp eval_binary(:eq, left, right), do: {:ok, feel_equal(left, right)}
+  defp eval_binary(:eq, left, right), do: {:ok, Semantics.equal(left, right)}
 
   defp eval_binary(:neq, left, right) do
-    case feel_equal(left, right) do
+    case Semantics.equal(left, right) do
       nil -> {:ok, nil}
       equal? -> {:ok, not equal?}
     end
@@ -1086,96 +1084,6 @@ defmodule Boxic.FEEL.Evaluator do
     _ -> :error
   end
 
-  defp feel_equal(nil, nil), do: true
-  defp feel_equal(nil, _right), do: false
-  defp feel_equal(_left, nil), do: false
-  defp feel_equal(%Decimal{} = left, %Decimal{} = right), do: decimal_equal?(left, right)
-  defp feel_equal(left, right) when is_integer(left) and is_integer(right), do: left == right
-
-  defp feel_equal(%Decimal{} = left, right) when is_integer(right),
-    do: decimal_equal?(left, decimal_new(right))
-
-  defp feel_equal(left, %Decimal{} = right) when is_integer(left),
-    do: decimal_equal?(decimal_new(left), right)
-
-  defp feel_equal(left, right) when is_boolean(left) and is_boolean(right), do: left == right
-  defp feel_equal(left, right) when is_binary(left) and is_binary(right), do: left == right
-  defp feel_equal(%Date{} = left, %Date{} = right), do: Date.compare(left, right) == :eq
-  defp feel_equal(%Time{} = left, %Time{} = right), do: Time.compare(left, right) == :eq
-
-  defp feel_equal(%DateTime{} = left, %DateTime{} = right),
-    do: DateTime.compare(left, right) == :eq
-
-  defp feel_equal(%FeelTime{} = left, %FeelTime{} = right),
-    do:
-      left.zone == right.zone and left.hour == right.hour and left.minute == right.minute and
-        Decimal.equal?(
-          Decimal.round(left.second, 0, :down),
-          Decimal.round(right.second, 0, :down)
-        )
-
-  defp feel_equal(%FeelDateTime{} = left, %FeelDateTime{} = right),
-    do:
-      if(left.time.zone == right.time.zone,
-        do:
-          Date.compare(left.date, right.date) == :eq and
-            feel_equal(left.time, right.time) == true,
-        else: FeelDateTime.compare(left, right) == :eq
-      )
-
-  defp feel_equal(%Duration{} = left, %Duration{} = right),
-    do:
-      if(left.kind == right.kind,
-        do: left.months == right.months and feel_equal(left.seconds, right.seconds) == true,
-        else: nil
-      )
-
-  defp feel_equal(%Range{} = left, %Range{} = right) do
-    left.start_inclusive == right.start_inclusive and
-      left.end_inclusive == right.end_inclusive and
-      feel_equal(left.start, right.start) == true and
-      feel_equal(left.end, right.end) == true
-  end
-
-  defp feel_equal(
-         {:unary_test_value, left_operator, left_operand},
-         {:unary_test_value, right_operator, right_operand}
-       ) do
-    left_operator == right_operator and feel_equal(left_operand, right_operand) == true
-  end
-
-  defp feel_equal({:unary_test_value, _operator, _operand}, %Range{}), do: false
-  defp feel_equal(%Range{}, {:unary_test_value, _operator, _operand}), do: false
-
-  defp feel_equal(left, right) when is_list(left) and is_list(right) do
-    if length(left) == length(right) do
-      left |> Enum.zip(right) |> Enum.map(fn {l, r} -> feel_equal(l, r) end) |> equality_all()
-    else
-      false
-    end
-  end
-
-  defp feel_equal(left, right)
-       when is_map(left) and is_map(right) and not is_struct(left) and not is_struct(right) do
-    if Map.keys(left) |> Enum.sort() == Map.keys(right) |> Enum.sort() do
-      left
-      |> Enum.map(fn {key, value} -> feel_equal(value, Map.fetch!(right, key)) end)
-      |> equality_all()
-    else
-      false
-    end
-  end
-
-  defp feel_equal(_left, _right), do: nil
-
-  defp equality_all(results) do
-    cond do
-      Enum.any?(results, &(&1 == false)) -> false
-      Enum.any?(results, &is_nil/1) -> nil
-      true -> true
-    end
-  end
-
   defp comparator_unary_test?(expression) do
     Regex.match?(~r/^(<=|>=|<|>|!=|=)\s*.+$/, expression)
   end
@@ -1198,6 +1106,14 @@ defmodule Boxic.FEEL.Evaluator do
 
   defp compare_for_unary_test(_op, nil, _rhs), do: {:ok, false}
   defp compare_for_unary_test(_op, _lhs, nil), do: {:ok, false}
+
+  # `= x` and `!= x` are the equality of FEEL, for values of every kind.
+  defp compare_for_unary_test(op, lhs, rhs) when op in ["=", "!="] do
+    case Semantics.equal(lhs, rhs) do
+      nil -> {:ok, nil}
+      equal? -> {:ok, if(op == "=", do: equal?, else: not equal?)}
+    end
+  end
 
   defp compare_for_unary_test(op, %Decimal{} = lhs, %Decimal{} = rhs) do
     case compare_decimals(lhs, rhs) do
@@ -1242,11 +1158,6 @@ defmodule Boxic.FEEL.Evaluator do
   defp compare_for_unary_test(op, lhs, rhs)
        when is_binary(lhs) and is_binary(rhs) and op in [">", ">=", "<", "<=", "=", "!="] do
     unary_compare_result(op, compare_strings(lhs, rhs))
-  end
-
-  defp compare_for_unary_test(op, lhs, rhs) when op in ["=", "!="] do
-    eq = Semantics.equal?(lhs, rhs)
-    {:ok, if(op == "=", do: eq, else: not eq)}
   end
 
   defp compare_for_unary_test(_op, _lhs, _rhs),
@@ -1313,7 +1224,7 @@ defmodule Boxic.FEEL.Evaluator do
   defp membership_result(value, test), do: membership_candidate(value, test)
 
   defp membership_candidate(value, %Range{} = range), do: range_contains?(range, value)
-  defp membership_candidate(value, test), do: feel_equal(value, test)
+  defp membership_candidate(value, test), do: Semantics.equal(value, test)
 
   defp equality_any(results) do
     cond do

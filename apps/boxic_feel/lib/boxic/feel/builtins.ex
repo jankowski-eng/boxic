@@ -1,7 +1,7 @@
 defmodule Boxic.FEEL.Builtins do
   @moduledoc false
 
-  alias Boxic.FEEL.Duration
+  alias Boxic.FEEL.{Duration, Semantics}
   alias Boxic.FEEL.DateTime, as: FeelDateTime
   alias Boxic.FEEL.Time, as: FeelTime
 
@@ -303,7 +303,7 @@ defmodule Boxic.FEEL.Builtins do
         boolean_aggregate(values, :any)
 
       {"list_contains", [list, element]} when is_list(list) ->
-        {:ok, Enum.any?(list, &feel_equal?(&1, element))}
+        {:ok, Enum.any?(list, &Semantics.equal?(&1, element))}
 
       {"sum", [list]} when is_list(list) ->
         sum_list(list)
@@ -356,7 +356,7 @@ defmodule Boxic.FEEL.Builtins do
         indexes =
           list
           |> Enum.with_index(1)
-          |> Enum.filter(fn {value, _index} -> feel_equal?(value, match) end)
+          |> Enum.filter(fn {value, _index} -> Semantics.equal?(value, match) end)
           |> Enum.map(fn {_value, index} -> Decimal.new(index) end)
 
         {:ok, indexes}
@@ -1111,7 +1111,7 @@ defmodule Boxic.FEEL.Builtins do
 
   defp distinct(values) do
     Enum.reduce(values, [], fn value, result ->
-      if Enum.any?(result, &feel_equal?(&1, value)), do: result, else: result ++ [value]
+      if Enum.any?(result, &Semantics.equal?(&1, value)), do: result, else: result ++ [value]
     end)
   end
 
@@ -1121,26 +1121,6 @@ defmodule Boxic.FEEL.Builtins do
       value -> [value]
     end)
   end
-
-  defp feel_equal?(%Decimal{} = left, %Decimal{} = right), do: Decimal.equal?(left, right)
-
-  defp feel_equal?(%FeelTime{} = left, %FeelTime{} = right),
-    do: FeelTime.compare(left, right) == :eq
-
-  defp feel_equal?(%FeelDateTime{} = left, %FeelDateTime{} = right),
-    do: FeelDateTime.compare(left, right) == :eq
-
-  defp feel_equal?(left, right) when is_list(left) and is_list(right) do
-    length(left) == length(right) and
-      Enum.zip(left, right) |> Enum.all?(fn {a, b} -> feel_equal?(a, b) end)
-  end
-
-  defp feel_equal?(left, right) when is_map(left) and is_map(right) do
-    Map.keys(left) |> MapSet.new() == Map.keys(right) |> MapSet.new() and
-      Enum.all?(left, fn {key, value} -> feel_equal?(value, Map.fetch!(right, key)) end)
-  end
-
-  defp feel_equal?(left, right), do: left == right
 
   defp string_join(values, delimiter) do
     values = Enum.reject(values, &is_nil/1)
@@ -1342,7 +1322,7 @@ defmodule Boxic.FEEL.Builtins do
       left.start_inclusive == right.start_inclusive and left.end_inclusive == right.end_inclusive
   end
 
-  defp coincides?(left, right), do: feel_equal?(left, right)
+  defp coincides?(left, right), do: Semantics.equal(left, right)
 
   defp endpoint_equal?(left, right), do: endpoint_compare(left, right) == :eq
   defp endpoint_compare(%Decimal{} = left, %Decimal{} = right), do: Decimal.compare(left, right)
@@ -1355,6 +1335,16 @@ defmodule Boxic.FEEL.Builtins do
   defp stringify_value(%Decimal{} = value), do: Decimal.to_string(value, :normal)
   defp stringify_value(value) when is_boolean(value), do: Atom.to_string(value)
   defp stringify_value(nil), do: "null"
+  defp stringify_value(%Date{} = value), do: ~s|@"#{Date.to_iso8601(value)}"|
+  defp stringify_value(%FeelTime{} = value), do: ~s|@"#{FeelTime.to_string(value)}"|
+  defp stringify_value(%FeelDateTime{} = value), do: ~s|@"#{FeelDateTime.to_string(value)}"|
+  defp stringify_value(%Duration{} = value), do: ~s|@"#{Duration.to_string(value)}"|
+
+  defp stringify_value(%Boxic.FEEL.Range{} = range) do
+    open = if range.start_inclusive, do: "[", else: "("
+    close = if range.end_inclusive, do: "]", else: ")"
+    open <> stringify_value(range.start) <> ".." <> stringify_value(range.end) <> close
+  end
 
   defp stringify_value(value) when is_list(value),
     do: "[" <> Enum.map_join(value, ", ", &stringify_value/1) <> "]"
