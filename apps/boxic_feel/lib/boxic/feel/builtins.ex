@@ -1010,20 +1010,26 @@ defmodule Boxic.FEEL.Builtins do
   end
 
   defp min_list([]), do: {:ok, nil}
-
-  defp min_list(values) do
-    case Enum.all?(values, &match?(%Decimal{}, &1)) do
-      true -> {:ok, Enum.reduce(values, fn value, current -> decimal_min(value, current) end)}
-      false -> {:error, err(:type_error, "min expects a list of numbers")}
-    end
-  end
+  defp min_list(values), do: extreme(values, :lt)
 
   defp max_list([]), do: {:ok, nil}
+  defp max_list(values), do: extreme(values, :gt)
 
-  defp max_list(values) do
-    case Enum.all?(values, &match?(%Decimal{}, &1)) do
-      true -> {:ok, Enum.reduce(values, fn value, current -> decimal_max(value, current) end)}
-      false -> {:error, err(:type_error, "max expects a list of numbers")}
+  # `min` and `max` take comparable items (Table 75): numbers, strings, dates, times,
+  # date-times, and durations, ordered as in Table 54. Items that cannot be compared with each
+  # other, such as a number and a string, or two durations of different kinds, give null, and
+  # so does an item that has no order at all, such as a list or a context.
+  defp extreme([first | rest], wanted) do
+    if Semantics.kind(first) == nil do
+      {:ok, nil}
+    else
+      Enum.reduce_while(rest, {:ok, first}, fn value, {:ok, current} ->
+        case Semantics.compare(value, current) do
+          :not_comparable -> {:halt, {:ok, nil}}
+          ^wanted -> {:cont, {:ok, value}}
+          _ordering -> {:cont, {:ok, current}}
+        end
+      end)
     end
   end
 
@@ -1039,14 +1045,6 @@ defmodule Boxic.FEEL.Builtins do
     else
       {:error, err(:type_error, "mean expects numbers")}
     end
-  end
-
-  defp decimal_min(value, current) do
-    if Decimal.compare(value, current) == :lt, do: value, else: current
-  end
-
-  defp decimal_max(value, current) do
-    if Decimal.compare(value, current) == :gt, do: value, else: current
   end
 
   defp insert_before(list, position, value) do
