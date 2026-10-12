@@ -232,7 +232,10 @@ defmodule Boxic.FEEL.DateTime do
            capture: :all_but_first
          ) do
       [year, month, day] ->
-        Date.new(String.to_integer(year), String.to_integer(month), String.to_integer(day))
+        case Date.new(String.to_integer(year), String.to_integer(month), String.to_integer(day)) do
+          {:ok, date} -> {:ok, date}
+          {:error, _reason} -> :error
+        end
 
       _ ->
         :error

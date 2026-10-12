@@ -19,6 +19,16 @@ Fixes:
   not by Erlang's term order: `"a" in [1..100]` and `1 in ["a".."z"]` returned
   `false`. Bounds are only compared when both are numbers, strings, booleans, or the
   same kind of temporal value, and the two bound tests combine with three-valued `and`.
+- Return an `:invalid_syntax` error for a temporal at-literal with an impossible date or a
+  malformed duration (`@"2020-02-30"`, `@"2020-13-45"`, `@"P"`, `@"PT1"`, `@"P1.5D"`),
+  instead of raising `CaseClauseError`. `Boxic.FEEL.DateTime.parse/1` returns `:error` for an
+  impossible date, as its spec says, rather than `{:error, :invalid_date}`.
+- Return an `:invalid_syntax` error for a surrogate in a `\U` escape (`"\U00D800"`), a signed
+  `\u` or `\U` escape (`"\u-123"`; `"\u+123"` was accepted), and expression text that is not
+  valid UTF-8, instead of raising `ArgumentError` or `FunctionClauseError`.
+- Return an `:invalid_ast` error from `evaluate_ast/2` for a context entry, function
+  parameter, or `for` binding that is not a pair, for an improper list, and for a named
+  argument outside a call, instead of raising `FunctionClauseError`.
 
 Fixes, so that results match the specification:
 

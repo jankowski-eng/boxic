@@ -4,7 +4,11 @@ defmodule Boxic.FEEL.Tokenizer do
   alias Boxic.FEEL.DateTime, as: FeelDateTime
   alias Boxic.FEEL.Time, as: FeelTime
 
-  def tokenize(expression), do: tokenize(expression, [])
+  def tokenize(expression) when is_binary(expression) do
+    if String.valid?(expression),
+      do: tokenize(expression, []),
+      else: {:error, error(:invalid_syntax, "expression is not valid UTF-8")}
+  end
 
   defp tokenize(<<>>, acc), do: {:ok, Enum.reverse(acc)}
 
@@ -38,7 +42,7 @@ defmodule Boxic.FEEL.Tokenizer do
       {:ok, value, remaining} ->
         case parse_at_literal(value) do
           {:ok, temporal} -> tokenize(remaining, [{:literal, temporal} | acc])
-          :error -> {:error, error(:invalid_syntax, "invalid at-literal")}
+          _invalid -> {:error, error(:invalid_syntax, "invalid at-literal")}
         end
 
       :error ->
@@ -268,7 +272,10 @@ defmodule Boxic.FEEL.Tokenizer do
            capture: :all_but_first
          ) do
       [year, month, day] ->
-        Date.new(String.to_integer(year), String.to_integer(month), String.to_integer(day))
+        case Date.new(String.to_integer(year), String.to_integer(month), String.to_integer(day)) do
+          {:ok, date} -> {:ok, date}
+          {:error, _reason} -> :error
+        end
 
       _ ->
         :error
@@ -291,11 +298,11 @@ defmodule Boxic.FEEL.Tokenizer do
   defp take_string(<<"\\t", rest::binary>>, acc), do: take_string(rest, acc <> "\t")
 
   defp take_string(<<"\\u", hex::binary-size(4), rest::binary>>, acc) do
-    with {codepoint, ""} <- Integer.parse(hex, 16) do
+    with {:ok, codepoint} <- parse_hex(hex) do
       case {codepoint, rest} do
         {high, <<"\\u", low_hex::binary-size(4), remaining::binary>>}
         when high in 0xD800..0xDBFF ->
-          with {low, ""} when low in 0xDC00..0xDFFF <- Integer.parse(low_hex, 16) do
+          with {:ok, low} when low in 0xDC00..0xDFFF <- parse_hex(low_hex) do
             combined = 0x10000 + (high - 0xD800) * 0x400 + low - 0xDC00
             take_string(remaining, acc <> <<combined::utf8>>)
           else
@@ -308,16 +315,16 @@ defmodule Boxic.FEEL.Tokenizer do
         {value, _} ->
           take_string(rest, acc <> <<value::utf8>>)
       end
-    else
-      _ -> :error
     end
   end
 
   defp take_string(<<"\\U", hex::binary-size(6), rest::binary>>, acc) do
-    with {codepoint, ""} when codepoint <= 0x10FFFF <- Integer.parse(hex, 16) do
-      take_string(rest, acc <> <<codepoint::utf8>>)
-    else
-      _ -> :error
+    case parse_hex(hex) do
+      {:ok, codepoint} when codepoint <= 0x10FFFF and codepoint not in 0xD800..0xDFFF ->
+        take_string(rest, acc <> <<codepoint::utf8>>)
+
+      _ ->
+        :error
     end
   end
 
@@ -328,6 +335,13 @@ defmodule Boxic.FEEL.Tokenizer do
     do: take_string(rest, acc <> <<char::utf8>>)
 
   defp take_string(<<>>, _acc), do: :error
+
+  # Only hexadecimal digits: Integer.parse/2 would also accept a sign.
+  defp parse_hex(hex) do
+    if Regex.match?(~r/\A[0-9a-fA-F]+\z/, hex),
+      do: {:ok, String.to_integer(hex, 16)},
+      else: :error
+  end
 
   defp take_while(binary, predicate), do: take_while(binary, predicate, "")
 

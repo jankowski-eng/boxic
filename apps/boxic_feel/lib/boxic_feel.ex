@@ -93,6 +93,10 @@ defmodule Boxic.FEEL do
           {:ok, boolean() | nil} | {:error, Error.t()}
   def evaluate_unary_test(test_expression, value, context \\ %{})
       when is_binary(test_expression) and is_map(context) do
-    Evaluator.evaluate_unary_test(test_expression, value, context)
+    if String.valid?(test_expression) do
+      Evaluator.evaluate_unary_test(test_expression, value, context)
+    else
+      {:error, %Error{code: :invalid_syntax, message: "expression is not valid UTF-8"}}
+    end
   end
 end
