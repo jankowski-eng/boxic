@@ -135,6 +135,7 @@ defmodule Boxic.FEEL.Semantics do
     left = to_decimal(left)
     right = to_decimal(right)
 
+    # NaN is not a FEEL number, but a host can put one in the context. It is not ordered.
     if Decimal.nan?(left) or Decimal.nan?(right),
       do: :not_comparable,
       else: Decimal.compare(left, right)
