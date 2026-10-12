@@ -152,6 +152,8 @@ passed through `:external_functions`.
 
 Invalid arity, argument conversion failures, invalid return values, and
 exceptions raised by host code become structured `Boxic.FEEL.Error` values.
+Registered parameters have no names, so a call with named arguments is an
+`:arity_error`.
 External functions execute in the evaluator process, so application code should
 keep them deterministic and fast and should add its own timeout or isolation
 when calling remote services.

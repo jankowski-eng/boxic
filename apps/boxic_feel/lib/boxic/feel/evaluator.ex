@@ -542,7 +542,11 @@ defmodule Boxic.FEEL.Evaluator do
   end
 
   defp apply_function(fun, args) when is_function(fun, length(args)) do
-    {:ok, apply(fun, args)}
+    if Enum.any?(args, &match?({:named_arg, _name, _value}, &1)) do
+      {:error, error(:arity_error, "a host function does not accept named arguments")}
+    else
+      {:ok, apply(fun, args)}
+    end
   end
 
   defp apply_function(_callee, _args),

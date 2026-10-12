@@ -52,6 +52,12 @@ Fixes:
   database instead of raising `MatchError`. The result is `null` when the shifted wall-clock
   time does not exist or the zone is unknown. `Boxic.FEEL.Duration.add_to_datetime/2` now
   returns `{:ok, datetime}` or `:error`.
+- Return a `:type_error` from an external function whose `:float` parameter receives a number
+  beyond the range of a float, or that returns a `:char` that is not a Unicode scalar value or a
+  `:number` that is not finite, instead of raising `Decimal.Error` or `ArgumentError`. An
+  `:integer` parameter takes an integer of any size. A call with named arguments is an
+  `:arity_error`, so the host function never receives the evaluator's `{:named_arg, name,
+  value}` tuple; this holds for a plain Elixir function in the context as well.
 
 Fixes, so that results match the specification:
 
