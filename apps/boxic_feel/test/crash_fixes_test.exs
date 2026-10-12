@@ -161,4 +161,89 @@ defmodule Boxic.FEEL.CrashFixesTest do
       assert {:ok, []} = Boxic.FEEL.evaluate_ast({:list, []}, %{})
     end
   end
+
+  describe "instance of" do
+    test "takes a single type expression, so the rest of the expression still parses" do
+      assert {:ok, true} = evaluate("1 instance of number and true")
+      assert {:ok, false} = evaluate("1 instance of number and false")
+      assert {:ok, true} = evaluate("1 instance of string or true")
+      assert {:ok, true} = evaluate("1 instance of number = true")
+      assert {:ok, true} = evaluate("(1 instance of number)")
+      assert {:ok, true} = evaluate("not(1 instance of number) = false")
+
+      assert {:ok, [true, two]} = evaluate("[1 instance of number, 2]")
+      assert Decimal.equal?(two, Decimal.new(2))
+
+      assert {:ok, one} = evaluate("if 1 instance of number then 1 else 2")
+      assert Decimal.equal?(one, Decimal.new(1))
+
+      assert {:ok, %{"a" => true, "b" => false}} =
+               evaluate(~S|{a: 1 instance of number, b: 1 instance of string}|)
+    end
+
+    test "does not swallow a following operand into the type" do
+      assert {:ok, true} = evaluate("1 instance of number and x", %{"x" => true})
+      assert {:ok, false} = evaluate("1 instance of number and x", %{"x" => false})
+      assert {:ok, true} = evaluate("1 instance of string or x", %{"x" => true})
+      assert {:ok, nil} = evaluate("1 instance of number and x")
+    end
+
+    test "parses to an instance_of node over just the type" do
+      assert {:ok, {:binary, :and, {:instance_of, {:literal, _}, "number"}, {:literal, true}}} =
+               Boxic.FEEL.parse("1 instance of number and true")
+    end
+
+    test "still accepts every form of type" do
+      for {expression, expected} <- [
+            {"1 instance of number", true},
+            {"1 instance of Any", true},
+            {~S|"a" instance of string|, true},
+            {"[1, 2] instance of list<number>", true},
+            {"[1, 2] instance of list<string>", false},
+            {"{a: 1} instance of context<a: number>", true},
+            {"{a: 1, b: \"x\"} instance of context<a: number, b: string>", true},
+            {"{a: 1} instance of context<a: string>", false},
+            {"{a: {b: 1}} instance of context<a: context<b: number>>", true},
+            {"[1..2] instance of range<number>", true},
+            {"(function(x) x) instance of function<number> -> number", true},
+            {"(function(x) x) instance of function<number>->number", true},
+            {"duration(\"P1D\") instance of days and time duration", true},
+            {"duration(\"P1Y\") instance of years and months duration", true},
+            {"duration(\"P1Y\") instance of days and time duration", false},
+            {"date(\"2020-01-01\") instance of date", true},
+            {"date and time(\"2020-01-01T10:00:00\") instance of date and time", true},
+            {"time(\"10:00:00\") instance of time", true},
+            {"duration(\"P1D\") instance of days and time duration and true", true},
+            {"1 instance of Unknown Type Name", false}
+          ] do
+        assert {:ok, expected} == evaluate(expression), expression
+      end
+    end
+
+    test "types in context-nested lists and functions keep composing with other operators" do
+      assert {:ok, [true, false]} =
+               evaluate("[[1] instance of list<number>, [1] instance of list<string>]")
+
+      assert {:ok, true} =
+               evaluate("{a: 1} instance of context<a: number> and [1] instance of list<number>")
+    end
+
+    test "a missing or malformed type is a syntax error" do
+      for expression <- [
+            "1 instance of",
+            "1 instance of 5",
+            ~S|1 instance of "number"|,
+            "1 instance of true",
+            "1 instance of null",
+            "1 instance of list<",
+            "1 instance of list<number",
+            "1 instance of context<a: >=>",
+            "1 instance of ()",
+            "1 instance of +",
+            "1 instance of number number )"
+          ] do
+        assert {:error, %Error{code: :invalid_syntax}} = evaluate(expression), expression
+      end
+    end
+  end
 end

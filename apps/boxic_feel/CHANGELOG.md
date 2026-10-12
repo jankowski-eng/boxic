@@ -29,6 +29,11 @@ Fixes:
 - Return an `:invalid_ast` error from `evaluate_ast/2` for a context entry, function
   parameter, or `for` binding that is not a pair, for an improper list, and for a named
   argument outside a call, instead of raising `FunctionClauseError`.
+- Parse the type after `instance of` as a single type expression. `1 instance of number and
+  true`, `[1 instance of number, 2]`, `if 1 instance of number then 1 else 2`, and
+  `1 instance of number = true` no longer raise `ArgumentError`, `(1 instance of number)` no
+  longer fails to parse, and `1 instance of number and x` no longer reads `number and x` as the
+  type.
 
 Fixes, so that results match the specification:
 
