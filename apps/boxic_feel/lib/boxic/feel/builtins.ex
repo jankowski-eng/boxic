@@ -124,10 +124,19 @@ defmodule Boxic.FEEL.Builtins do
         result ->
           result
       end
+      |> null_if_not_finite()
     end
   rescue
     _ -> {:error, err(:evaluation_error, "built-in invocation failed")}
   end
+
+  # FEEL numbers are finite. Decimal reports an overflow, such as in sum([9e6144, 9e6144]),
+  # as an infinity, which is null.
+  defp null_if_not_finite({:ok, %Decimal{coef: coef}}) when not is_integer(coef), do: {:ok, nil}
+  defp null_if_not_finite(result), do: result
+
+  defp finite_number(%Decimal{coef: coef} = number) when is_integer(coef), do: number
+  defp finite_number(%Decimal{}), do: nil
 
   defp invoke_normalized(name, args) do
     case {name, args} do
@@ -489,10 +498,10 @@ defmodule Boxic.FEEL.Builtins do
         {:ok, stringify_value(value)}
 
       {"number", [value]} when is_binary(value) ->
-        {:ok, Decimal.new(value)}
+        {:ok, value |> Decimal.new() |> finite_number()}
 
       {"number", [%Decimal{} = value]} ->
-        {:ok, value}
+        {:ok, finite_number(value)}
 
       {"number", [value, grouping_separator, decimal_separator]} when is_binary(value) ->
         parse_number(value, grouping_separator, decimal_separator)
@@ -951,7 +960,7 @@ defmodule Boxic.FEEL.Builtins do
       normalized = replace_decimal_separator(without_grouping, decimal_separator)
 
       case Decimal.parse(normalized) do
-        {number, ""} -> {:ok, number}
+        {number, ""} -> {:ok, finite_number(number)}
         _ -> {:error, err(:evaluation_error, "invalid number literal")}
       end
     else

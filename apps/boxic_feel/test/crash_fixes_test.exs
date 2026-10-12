@@ -246,4 +246,266 @@ defmodule Boxic.FEEL.CrashFixesTest do
       end
     end
   end
+
+  describe "exponentiation that is not a real number" do
+    test "is null rather than raising" do
+      for expression <- [
+            "(-8) ** (1/3)",
+            "(-1) ** 0.5",
+            "0 ** -0.5",
+            "10 ** 308.5",
+            "1.5 ** 2000.5",
+            "1e300 ** 1.5",
+            "1e400 ** 0.5",
+            "1 ** 1e-400",
+            "(1e-400) ** 0.5",
+            "1e6144 ** 1.5",
+            "2 ** 1e-6000"
+          ] do
+        assert {:ok, nil} == evaluate(expression), expression
+      end
+    end
+
+    test "other powers still evaluate" do
+      assert {:ok, nine} = evaluate("3 ** 2")
+      assert Decimal.equal?(nine, Decimal.new(9))
+      assert {:ok, quarter} = evaluate("2 ** -2")
+      assert Decimal.equal?(quarter, Decimal.new("0.25"))
+      assert {:ok, root} = evaluate("2 ** 0.5")
+      assert Decimal.equal?(Decimal.round(root, 10), Decimal.new("1.4142135624"))
+      assert {:ok, one} = evaluate("(-8) ** 0")
+      assert Decimal.equal?(one, Decimal.new(1))
+      assert {:ok, minus_eight} = evaluate("(-2) ** 3")
+      assert Decimal.equal?(minus_eight, Decimal.new(-8))
+      assert {:ok, nil} == evaluate("0 ** -1")
+      assert {:ok, big} = evaluate("10 ** 6144")
+      assert Decimal.equal?(big, Decimal.new("1e6144"))
+    end
+  end
+
+  describe "arithmetic that overflows" do
+    test "is null instead of an infinity" do
+      for expression <- [
+            "1e6144 * 10",
+            "10 * 1e6144",
+            "10 ** 6145",
+            "2 ** 100000",
+            "2 ** 1000000",
+            "1e6000 * 1e6000",
+            "-(1e6144 * 10)",
+            "1e6144 + 1e6144 * 10",
+            "1e6144 * 10 + 1",
+            "1e6144 * 10 - 1",
+            "1 - 1e6144 * 10",
+            "-1e6144 * 10 - 1e6144 * 10",
+            "1e6144 / 1e-6000",
+            "10 ** -6145",
+            "(-10) ** 6145",
+            "(1e6144 * 10) - (1e6144 * 10)",
+            "10 ** 6145 / 10 ** 6145",
+            "0 * (1e6144 * 10)",
+            "(1e6144 * 10) * 0",
+            "sum([9e6144, 9e6144])",
+            "product([1e6144, 10])"
+          ] do
+        assert {:ok, nil} == evaluate(expression), expression
+      end
+    end
+
+    test "a value near the limit is not an overflow" do
+      assert {:ok, %Decimal{coef: coef}} = evaluate("9e6144 + 1e6144 * 0")
+      assert is_integer(coef)
+      assert {:ok, %Decimal{coef: coef}} = evaluate("1e6144 * 9")
+      assert is_integer(coef)
+    end
+  end
+
+  describe "a NaN supplied by the host" do
+    test "is not ordered, so comparing it is null" do
+      context = %{"x" => Decimal.new("NaN")}
+
+      for expression <- [
+            "x < 1",
+            "x > 1",
+            "1 <= x",
+            "x in [1..5]",
+            "x between 1 and 5",
+            "x in (>1)"
+          ] do
+        assert {:ok, nil} == evaluate(expression, context), expression
+      end
+
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("> 1", Decimal.new("NaN"))
+      assert {:ok, nil} = Boxic.FEEL.evaluate_unary_test("[1..5]", Decimal.new("NaN"))
+    end
+
+    test "does not yield a number from arithmetic" do
+      context = %{"x" => Decimal.new("NaN")}
+
+      for expression <- ["x + 1", "1 - x", "x * 2", "x / 2", "x ** 2", "2 ** x", "-x"] do
+        assert {:ok, nil} == evaluate(expression, context), expression
+      end
+    end
+  end
+
+  describe "non-finite number strings" do
+    test "number() returns null for NaN and infinities" do
+      for text <- ["NaN", "nan", "Infinity", "-Infinity", "+Infinity", "inf", "-inf"] do
+        assert {:ok, nil} == evaluate(~s|number("#{text}")|), text
+        assert {:ok, nil} == evaluate(~s|number("#{text}", " ", ".")|), text
+      end
+    end
+
+    test "comparisons and range tests on them are null" do
+      assert {:ok, nil} == evaluate(~S|number("NaN") < 1|)
+      assert {:ok, nil} == evaluate(~S|number("NaN") in [1..2]|)
+      assert {:ok, nil} == evaluate(~S|number("Infinity") > 1|)
+      assert {:ok, nil} == evaluate(~S|1 < number("Infinity")|)
+    end
+
+    test "number() still parses finite strings" do
+      assert {:ok, n} = evaluate(~S|number("12.5")|)
+      assert Decimal.equal?(n, Decimal.new("12.5"))
+      assert {:ok, n} = evaluate(~S|number("1,234.5", ",", ".")|)
+      assert Decimal.equal?(n, Decimal.new("1234.5"))
+    end
+  end
+
+  describe "duration arithmetic beyond the representable range" do
+    test "scaling past the limit is null" do
+      for expression <- [
+            ~S|duration("P1M") * 1e34|,
+            ~S|1e34 * duration("P1M")|,
+            ~S|duration("P1M") * number("NaN")|,
+            ~S|duration("P1Y") * 1e40|,
+            ~S|duration("P1Y") * 1e6144|,
+            ~S|duration("P1D") * 1e300|,
+            ~S|duration("P1D") * 1e6144|,
+            ~S|duration("P1D") / 1e-6000|,
+            ~S|duration("P1Y") / 1e-6000|,
+            ~S|date("2020-01-01") + duration("P1D") * 1e300|,
+            ~S|date("2020-01-01") - duration("P1D") * 1e300|,
+            ~S|(duration("P1D") * 1e300).days|,
+            ~S|(duration("P1D") * 1e300).seconds|,
+            ~S|(duration("P1Y") * 1e40).years|
+          ] do
+        assert {:ok, nil} == evaluate(expression), expression
+      end
+    end
+
+    test "scaling within the limit still works" do
+      assert {:ok, %Duration{kind: :year_month, months: 24}} = evaluate(~S|duration("P1Y") * 2|)
+      assert {:ok, %Duration{kind: :year_month, months: 18}} = evaluate(~S|duration("P1Y") * 1.5|)
+      assert {:ok, %Duration{kind: :year_month, months: 6}} = evaluate(~S|duration("P1Y") / 2|)
+
+      assert {:ok, %Duration{kind: :day_time} = scaled} = evaluate(~S|duration("P1D") * 0.5|)
+      assert Decimal.equal?(Decimal.new(scaled.seconds), Decimal.new(43_200))
+      assert {:ok, %Duration{kind: :year_month, months: 0}} = evaluate(~S|duration("P1Y") * 0|)
+    end
+
+    test "Duration.scale/2 reports an unrepresentable result as :error" do
+      {:ok, month} = Duration.parse_iso8601("P1M")
+      assert :error = Duration.scale(month, Decimal.new("1e34"))
+      assert :error = Duration.scale(month, Decimal.new("NaN"))
+      assert :error = Duration.scale(month, Decimal.new("Infinity"))
+      assert {:ok, %Duration{months: 2}} = Duration.scale(month, Decimal.new(2))
+    end
+
+    test "huge duration literals do not break their accessors" do
+      huge = "P" <> String.duplicate("9", 60) <> "D"
+
+      for expression <- [
+            ~s|duration("#{huge}").days|,
+            ~s|duration("#{huge}").hours|,
+            ~s|duration("#{huge}").seconds|,
+            ~s|string(duration("#{huge}"))|,
+            ~s|date("2020-01-01") + duration("#{huge}")|,
+            ~s|date and time("2020-01-01T10:00:00Z") + duration("#{huge}")|,
+            ~s|date and time("2020-01-01T10:00:00@Europe/Berlin") + duration("#{huge}")|,
+            ~s|time("10:00:00") + duration("#{huge}")|,
+            ~s|duration("#{huge}") + duration("#{huge}")|,
+            ~s|duration("#{huge}") * 2|,
+            ~s|duration("#{huge}") / duration("PT1S")|
+          ] do
+        assert match?({:ok, _}, evaluate(expression)), expression
+      end
+    end
+  end
+
+  describe "an Elixir DateTime in a non-UTC zone" do
+    setup do
+      berlin = DateTime.new!(~D[2020-06-01], ~T[10:30:00], "Europe/Berlin", Tz.TimeZoneDatabase)
+      {:ok, berlin: berlin, context: %{"dt" => berlin}}
+    end
+
+    test "can be shifted by a day-time duration", %{context: context} do
+      assert {:ok, %DateTime{} = result} = evaluate(~S|dt + duration("P1D")|, context)
+      assert result.time_zone == "Europe/Berlin"
+      assert DateTime.to_date(result) == ~D[2020-06-02]
+      assert DateTime.to_time(result) == ~T[10:30:00]
+
+      assert {:ok, %DateTime{} = result} = evaluate(~S|duration("PT2H") + dt|, context)
+      assert DateTime.to_time(result) == ~T[12:30:00]
+
+      assert {:ok, %DateTime{} = result} = evaluate(~S|dt - duration("P1D")|, context)
+      assert DateTime.to_date(result) == ~D[2020-05-31]
+    end
+
+    test "can be shifted by a year-month duration", %{context: context} do
+      assert {:ok, %DateTime{} = result} = evaluate(~S|dt + duration("P1M")|, context)
+      assert DateTime.to_date(result) == ~D[2020-07-01]
+      assert result.time_zone == "Europe/Berlin"
+    end
+
+    test "keeps the wall-clock time across a daylight-saving change" do
+      before_change =
+        DateTime.new!(~D[2020-03-28], ~T[12:00:00], "Europe/Berlin", Tz.TimeZoneDatabase)
+
+      assert {:ok, %DateTime{} = result} =
+               evaluate(~S|dt + duration("P1M")|, %{"dt" => before_change})
+
+      assert DateTime.to_date(result) == ~D[2020-04-28]
+      assert DateTime.to_time(result) == ~T[12:00:00]
+      assert result.utc_offset + result.std_offset == 7_200
+    end
+
+    test "is null when the shifted wall-clock time does not exist" do
+      before_change =
+        DateTime.new!(~D[2020-02-29], ~T[02:30:00], "Europe/Berlin", Tz.TimeZoneDatabase)
+
+      # 2020-03-29 02:30 does not exist in Europe/Berlin (clocks jump from 02:00 to 03:00).
+      assert {:ok, nil} = evaluate(~S|dt + duration("P1M")|, %{"dt" => before_change})
+    end
+
+    test "in an unknown zone is null" do
+      unknown = %DateTime{
+        year: 2020,
+        month: 6,
+        day: 1,
+        hour: 10,
+        minute: 0,
+        second: 0,
+        microsecond: {0, 0},
+        zone_abbr: "XX",
+        utc_offset: 3_600,
+        std_offset: 0,
+        time_zone: "Nowhere/Land"
+      }
+
+      assert {:ok, nil} = evaluate(~S|dt + duration("P1D")|, %{"dt" => unknown})
+    end
+
+    test "UTC values still work" do
+      utc = DateTime.new!(~D[2020-06-01], ~T[10:30:00], "Etc/UTC")
+      assert {:ok, %DateTime{} = result} = evaluate(~S|dt + duration("P1D")|, %{"dt" => utc})
+      assert DateTime.to_date(result) == ~D[2020-06-02]
+    end
+
+    test "Duration.add_to_datetime/2 returns the shifted value or :error", %{berlin: berlin} do
+      {:ok, day} = Duration.parse_iso8601("P1D")
+      assert {:ok, %DateTime{} = shifted} = Duration.add_to_datetime(berlin, day)
+      assert DateTime.to_date(shifted) == ~D[2020-06-02]
+      assert :error = Duration.add_to_datetime(%{berlin | time_zone: "Nowhere/Land"}, day)
+    end
+  end
 end

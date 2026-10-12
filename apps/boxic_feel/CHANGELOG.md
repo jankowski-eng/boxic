@@ -34,6 +34,24 @@ Fixes:
   `1 instance of number = true` no longer raise `ArgumentError`, `(1 instance of number)` no
   longer fails to parse, and `1 instance of number and x` no longer reads `number and x` as the
   type.
+- Return `null` for an exponentiation without a real result, instead of raising
+  `ArithmeticError` or `Decimal.Error`: a negative base with a fractional exponent
+  (`(-8) ** (1/3)`), zero to a negative fractional power, and a base, exponent, or result
+  that a float cannot hold (`10 ** 308.5`, `1e400 ** 0.5`, `1 ** 1e-400`).
+- Return `null` instead of an infinity when arithmetic overflows (`1e6144 * 10`, `10 ** 6145`,
+  `2 ** 1000000`, `sum([9e6144, 9e6144])`), and instead of raising `Decimal.Error` when an
+  infinity would be subtracted, divided, or multiplied by zero. `number("NaN")` and
+  `number("Infinity")` are `null` rather than a `Decimal` that is not a number, and comparing a
+  `NaN` that the host supplied is `null` rather than raising.
+- Return `null` when a duration is scaled to more than 34 digits (`duration("P1M") * 1e34`,
+  `duration("P1D") * 1e300`), or by a factor that is not a number, instead of raising
+  `Decimal.Error`. `Boxic.FEEL.Duration.scale/2` now returns `{:ok, duration}` or `:error`.
+  The `days`, `hours`, `minutes`, and `seconds` of a very long duration, its text, and its sum
+  with a date or time no longer raise either.
+- Add a duration to an Elixir `DateTime` in a zone other than UTC with the `Tz` time zone
+  database instead of raising `MatchError`. The result is `null` when the shifted wall-clock
+  time does not exist or the zone is unknown. `Boxic.FEEL.Duration.add_to_datetime/2` now
+  returns `{:ok, datetime}` or `:error`.
 
 Fixes, so that results match the specification:
 

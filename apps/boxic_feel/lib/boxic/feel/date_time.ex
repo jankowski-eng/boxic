@@ -99,7 +99,7 @@ defmodule Boxic.FEEL.DateTime do
       )
       when year > 0 do
     with {:ok, datetime} <- to_elixir_datetime(value, zone),
-         {whole_seconds, fraction} <- split_seconds(seconds),
+         {whole_seconds, fraction} = Duration.split_seconds(seconds),
          shifted <-
            DateTime.add(datetime, whole_seconds, :second, Tz.TimeZoneDatabase),
          {:ok, result} <- from_elixir_datetime(shifted, fraction) do
@@ -111,13 +111,11 @@ defmodule Boxic.FEEL.DateTime do
 
   def add_duration(%__MODULE__{} = value, %Duration{kind: :day_time, seconds: seconds}) do
     total = Decimal.add(FeelTime.local_seconds(value.time), decimal(seconds))
-    day = Decimal.new(86_400)
-    day_delta = total |> Decimal.div(day) |> Decimal.round(0, :floor) |> Decimal.to_integer()
 
     {:ok,
      %{
        value
-       | date: Date.add(value.date, day_delta),
+       | date: Date.add(value.date, Duration.floor_days(total)),
          time: FeelTime.add_seconds(value.time, seconds)
      }}
   end
@@ -216,12 +214,6 @@ defmodule Boxic.FEEL.DateTime do
            FeelTime.new(value.hour, value.minute, second, {:iana, value.time_zone}) do
       {:ok, new(DateTime.to_date(value), time)}
     end
-  end
-
-  defp split_seconds(seconds) do
-    seconds = decimal(seconds)
-    whole = seconds |> Decimal.round(0, :down) |> Decimal.to_integer()
-    {whole, Decimal.sub(seconds, Decimal.new(whole))}
   end
 
   defp decimal(%Decimal{} = value), do: value
